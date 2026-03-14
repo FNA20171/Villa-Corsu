@@ -746,11 +746,19 @@ function setStatsTab(tab, el) {
 
 function getMonthlyRevenue(year) {
   var pad=function(n){return String(n).padStart(2,'0');},result=[];
+  var todayStr=fmtDate(today);
+  var cy=today.getFullYear(), cm=today.getMonth()+1;
   for (var mo=0;mo<12;mo++) {
+    // Skip future months (except current month which may be partial)
+    if (year===cy && mo+1>cm) { result.push({mo:mo,rev:0,ni:0,bk:0}); continue; }
     var mStr=pad(mo+1),mS=year+'-'+mStr+'-01',dIn=new Date(year,mo+1,0).getDate(),mE=year+'-'+mStr+'-'+pad(dIn);
+    // For current month cap at today
+    if (year===cy && mo+1===cm) mE=todayStr;
     var rev=0,ni=0,bk=0;
     bookings.forEach(function(b){
       if (b.status==='blocked'||b.status==='cancelled') return;
+      // Only count stays that have already started (checkin <= today)
+      if (b.checkin>todayStr) return;
       if (b.checkin<=mE&&b.checkout>=mS){
         var s=new Date(Math.max(new Date(b.checkin),new Date(mS)));
         var e=new Date(Math.min(new Date(b.checkout),new Date(mE)));
@@ -764,11 +772,13 @@ function getMonthlyRevenue(year) {
 }
 
 function getYearlyRevenue() {
-  var yrs=[],cy=today.getFullYear();
+  var yrs=[],cy=today.getFullYear(),todayStr=fmtDate(today);
   bookings.forEach(function(b){
     if (b.status==='blocked'||b.status==='cancelled') return;
+    if (b.checkin>todayStr) return; // skip future bookings
     var y=parseInt(b.checkin.slice(0,4));
-    if (yrs.indexOf(y)<0) yrs.push(y);
+    // Only include years up to current year
+    if (y<=cy && yrs.indexOf(y)<0) yrs.push(y);
   });
   if (yrs.indexOf(cy)<0) yrs.push(cy);
   yrs.sort();
