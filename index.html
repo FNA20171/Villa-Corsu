@@ -495,7 +495,6 @@ function demoData() {
     {id:'p12',guest:'Anna Kowalski',origin:'Varsovie, Pologne',checkin:`${py1}-11-10`,checkout:`${py1}-11-14`,nights:4,revenue:480,status:'confirmed',guests:2,phone:'',note:''},
     {id:'p13',guest:'Lucas Petit',origin:'Lyon, France',checkin:`${py1}-12-22`,checkout:`${py1}-12-28`,nights:6,revenue:820,status:'confirmed',guests:5,phone:'',note:'Vacances Noël'},
   ];
-  const py1 = y - 1;
   const blocked = [
     {id:'bl1',guest:'',origin:'',checkin:`${y}-${pad(m)}-01`,checkout:`${y}-${pad(m)}-05`,nights:4,revenue:0,status:'blocked',guests:0,phone:'',note:'Not available'},
     {id:'bl2',guest:'',origin:'',checkin:`${y}-${pad(m)}-10`,checkout:`${y}-${pad(m)}-14`,nights:4,revenue:0,status:'blocked',guests:0,phone:'',note:'Not available'},
@@ -624,13 +623,11 @@ function renderMetrics() {
     {label:'Revenus', value:mRev.toLocaleString('fr-FR')+'€', sub:'estimés', color:'var(--green)'},
     {label:'Prochaine arrivée', value:nextTxt, sub:nextSub, color:'var(--blue)'},
   ];
-  document.getElementById('metrics-strip').innerHTML = metrics.map(m =>
-    `<div class="metric-card">
-      <div class="metric-label">${m.label}</div>
-      <div class="metric-value" style="color:${m.color}">${m.value}</div>
-      ${m.sub?`<div class="metric-sub">${m.sub}</div>`:''}
-    </div>`
-  ).join('');
+  document.getElementById('metrics-strip').innerHTML = metrics.map(function(m) {
+    var sub = m.sub ? '<div class="metric-sub">'+m.sub+'</div>' : '';
+    return '<div class="metric-card"><div class="metric-label">'+m.label+'</div>'
+      +'<div class="metric-value" style="color:'+m.color+'">'+m.value+'</div>'+sub+'</div>';
+  }).join('');
 }
 
 // ── Calendar ──────────────────────────────────────────────────────────────
@@ -675,7 +672,8 @@ function renderCalendar() {
       tap = `onclick="openDetail('${b.id}')"`;
       const firstName = b.guest ? b.guest.split(' ')[0] : '';
       const showName  = (ds === b.checkin) && firstName;
-      inner = `<div class="cal-cell-wrap"><div class="cal-cell-num">${d}</div>${showName ? `<div class="cal-cell-name">${firstName}</div>` : ''}</div>`;
+      var nameHtml = showName ? '<div class="cal-cell-name">'+firstName+'</div>' : '';
+      inner = '<div class="cal-cell-wrap"><div class="cal-cell-num">'+d+'</div>'+nameHtml+'</div>';
     } else if (bl) {
       cls += ' blocked';
       inner = `<div class="cal-cell-wrap"><div class="cal-cell-num">${d}</div></div>`;
@@ -901,7 +899,7 @@ function openDetail(id) {
       <div class="detail-item"><div class="di-label">Revenus</div><div class="di-value" style="color:var(--green)">${b.revenue.toLocaleString('fr-FR')} €</div></div>
       <div class="detail-item"><div class="di-label">Téléphone</div><div class="di-value">${b.phone||'—'}</div></div>
     </div>
-    ${b.note ? `<div class="note-box">📝 ${b.note}</div>` : ''}
+    ${b.note ? '<div class="note-box">'+b.note+'</div>' : ''}
     <div class="action-btns">
       <button class="action-btn btn-close" onclick="closeSheet()">Fermer</button>
       <button class="action-btn btn-delete" onclick="deleteBooking('${b.id}')">Supprimer</button>
@@ -1104,17 +1102,18 @@ function renderAnnual() {
       cells += `<div class="${cls}" ${tap}>${d}</div>`;
     }
 
-    html += `<div class="mini-month">
-      <div class="mini-month-title">${MONTHS[mo]}</div>
-      <div class="mini-days-hdr">${DAYS_MINI.map(d => `<div class="mini-day-lbl">${d}</div>`).join('')}</div>
-      <div class="mini-cal-body">${cells}</div>
-      <div class="year-month-stats">
-        <div class="yms-item"><div class="yms-val" style="color:var(--airbnb)">${mBk}</div><div class="yms-lbl">séjours</div></div>
-        <div class="yms-item"><div class="yms-val" style="color:var(--orange)">${mNi}n</div><div class="yms-lbl">nuits</div></div>
-        <div class="yms-item"><div class="yms-val">${occ}%</div><div class="yms-lbl">occup.</div></div>
-        <div class="yms-item"><div class="yms-val" style="color:var(--green)">${mRev > 0 ? mRev.toLocaleString('fr-FR')+'€' : '—'}</div><div class="yms-lbl">revenus</div></div>
-      </div>
-    </div>`;
+    var daysHdr = DAYS_MINI.map(function(d){return '<div class="mini-day-lbl">'+d+'</div>';}).join('');
+    var revStr = mRev > 0 ? mRev.toLocaleString('fr-FR')+'€' : '—';
+    html += '<div class="mini-month">'
+      + '<div class="mini-month-title">'+MONTHS[mo]+'</div>'
+      + '<div class="mini-days-hdr">'+daysHdr+'</div>'
+      + '<div class="mini-cal-body">'+cells+'</div>'
+      + '<div class="year-month-stats">'
+      + '<div class="yms-item"><div class="yms-val" style="color:var(--airbnb)">'+mBk+'</div><div class="yms-lbl">séjours</div></div>'
+      + '<div class="yms-item"><div class="yms-val" style="color:var(--orange)">'+mNi+'n</div><div class="yms-lbl">nuits</div></div>'
+      + '<div class="yms-item"><div class="yms-val">'+occ+'%</div><div class="yms-lbl">occup.</div></div>'
+      + '<div class="yms-item"><div class="yms-val" style="color:var(--green)">'+revStr+'</div><div class="yms-lbl">revenus</div></div>'
+      + '</div></div>';
   }
   document.getElementById('year-grid').innerHTML = html;
 }
