@@ -298,6 +298,8 @@ html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--b
       <div class="section-title">Statistiques</div>
       <div class="stats-tabs">
         <button class="stats-tab active" onclick="setStatsTab('kpi',this)">KPI</button>
+        <button class="stats-tab" onclick="setStatsTab('trend',this)">Courbe</button>
+        <button class="stats-tab" onclick="setStatsTab('compare',this)">Comparaison</button>
         <button class="stats-tab" onclick="setStatsTab('monthly',this)">Revenus mensuels</button>
         <button class="stats-tab" onclick="setStatsTab('annual',this)">Historique annuel</button>
       </div>
@@ -804,6 +806,132 @@ function svgBarChart(opts) {
   return h;
 }
 
+
+// SVG line/area chart - zero nested backticks
+function svgLineChart(opts) {
+  var data=opts.data, lk=opts.labelKey, vk=opts.valueKey;
+  var color=opts.color||'#FF385C';
+  var W=opts.W||320, H=opts.H||180;
+  var fv=opts.formatVal||function(v){return v>=1000?Math.round(v/100)/10+'k':String(v);};
+  var showDots=opts.showDots!==false;
+  if (!data||data.length<2) return '<p style="text-align:center;color:var(--text3);padding:20px">Donnees insuffisantes</p>';
+  var pT=14,pR=12,pB=32,pL=44,cw=W-pL-pR,ch=H-pT-pB;
+  var vals=data.map(function(d){return d[vk]||0;});
+  var maxV=Math.max.apply(null,vals)||1;
+  var mag=Math.pow(10,Math.floor(Math.log10(maxV)));
+  var ceil=Math.ceil(maxV/mag)*mag;
+  var stepX=cw/(data.length-1);
+
+  // points
+  var pts=data.map(function(d,i){
+    return {x:(i*stepX).toFixed(1), y:(ch-(((d[vk]||0)/ceil)*ch)).toFixed(1), v:d[vk]||0, lb:d[lk]};
+  });
+
+  var h='<div style="position:relative"><svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:'+H+'px;display:block;">';
+  h+='<defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1">';
+  h+='<stop offset="0%" stop-color="'+color+'" stop-opacity="0.25"/>';
+  h+='<stop offset="100%" stop-color="'+color+'" stop-opacity="0.02"/>';
+  h+='</linearGradient></defs>';
+  h+='<g transform="translate('+pL+','+pT+')">';
+
+  // grid
+  for (var gi=0;gi<=4;gi++){
+    var yv=(ceil/4)*gi, yy=(ch-(yv/ceil)*ch).toFixed(1);
+    h+='<line x1="0" y1="'+yy+'" x2="'+cw+'" y2="'+yy+'" stroke="var(--border)" stroke-width="0.7"/>';
+    h+='<text x="-5" y="'+(parseFloat(yy)+4).toFixed(1)+'" text-anchor="end" font-size="9" fill="var(--text3)">'+fv(yv)+'</text>';
+  }
+
+  // area fill
+  var areaPath='M '+pts[0].x+','+ch;
+  pts.forEach(function(p){ areaPath+=' L '+p.x+','+p.y; });
+  areaPath+=' L '+pts[pts.length-1].x+','+ch+' Z';
+  h+='<path d="'+areaPath+'" fill="url(#lg)"/>';
+
+  // smooth line using cubic bezier
+  var linePath='M '+pts[0].x+','+pts[0].y;
+  for (var i=1;i<pts.length;i++){
+    var prev=pts[i-1], curr=pts[i];
+    var cpx=((parseFloat(prev.x)+parseFloat(curr.x))/2).toFixed(1);
+    linePath+=' C '+cpx+','+prev.y+' '+cpx+','+curr.y+' '+curr.x+','+curr.y;
+  }
+  h+='<path d="'+linePath+'" fill="none" stroke="'+color+'" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
+
+  // dots + x labels
+  pts.forEach(function(p,i){
+    if (showDots && p.v > 0) {
+      h+='<circle cx="'+p.x+'" cy="'+p.y+'" r="3.5" fill="'+color+'" stroke="white" stroke-width="1.5"/>';
+    }
+    // show every label or skip for dense data
+    var showLbl = data.length<=12 || i===0 || i===data.length-1 || i%Math.ceil(data.length/8)===0;
+    if (showLbl) {
+      h+='<text x="'+p.x+'" y="'+(ch+14).toFixed(1)+'" text-anchor="middle" font-size="9" fill="var(--text3)">'+p.lb+'</text>';
+    }
+  });
+
+  h+='</g></svg></div>';
+  return h;
+}
+
+// Multi-line chart to compare several years on same axes
+function svgMultiLineChart(opts) {
+  var series=opts.series; // [{label, data:[{x,v}], color}]
+  var W=opts.W||320, H=opts.H||200;
+  var fv=opts.formatVal||function(v){return v>=1000?Math.round(v/100)/10+'k':String(v);};
+  if (!series||!series.length) return '<p style="text-align:center;color:var(--text3);padding:20px">Aucune donnee</p>';
+  var pT=14,pR=12,pB=32,pL=44,cw=W-pL-pR,ch=H-pT-pB;
+  var allVals=[];
+  series.forEach(function(s){s.data.forEach(function(d){allVals.push(d.v||0);});});
+  var maxV=Math.max.apply(null,allVals)||1;
+  var mag=Math.pow(10,Math.floor(Math.log10(maxV)));
+  var ceil=Math.ceil(maxV/mag)*mag;
+  var nPts=series[0].data.length;
+  var stepX=nPts>1?cw/(nPts-1):cw;
+
+  var h='<div style="position:relative"><svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:'+H+'px;display:block;">';
+  h+='<g transform="translate('+pL+','+pT+')">';
+
+  // grid
+  for (var gi=0;gi<=4;gi++){
+    var yv=(ceil/4)*gi,yy=(ch-(yv/ceil)*ch).toFixed(1);
+    h+='<line x1="0" y1="'+yy+'" x2="'+cw+'" y2="'+yy+'" stroke="var(--border)" stroke-width="0.7"/>';
+    h+='<text x="-5" y="'+(parseFloat(yy)+4).toFixed(1)+'" text-anchor="end" font-size="9" fill="var(--text3)">'+fv(yv)+'</text>';
+  }
+
+  // x labels from first series
+  series[0].data.forEach(function(d,i){
+    var x=(i*stepX).toFixed(1);
+    var showLbl = nPts<=12 || i===0 || i===nPts-1 || i%Math.ceil(nPts/8)===0;
+    if (showLbl) h+='<text x="'+x+'" y="'+(ch+14).toFixed(1)+'" text-anchor="middle" font-size="9" fill="var(--text3)">'+d.x+'</text>';
+  });
+
+  // each series line
+  series.forEach(function(s){
+    var pts=s.data.map(function(d,i){
+      return {x:(i*stepX).toFixed(1), y:(ch-(((d.v||0)/ceil)*ch)).toFixed(1), v:d.v||0};
+    });
+    var lp='M '+pts[0].x+','+pts[0].y;
+    for (var i=1;i<pts.length;i++){
+      var prev=pts[i-1],curr=pts[i];
+      var cpx=((parseFloat(prev.x)+parseFloat(curr.x))/2).toFixed(1);
+      lp+=' C '+cpx+','+prev.y+' '+cpx+','+curr.y+' '+curr.x+','+curr.y;
+    }
+    h+='<path d="'+lp+'" fill="none" stroke="'+s.color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>';
+    pts.forEach(function(p){
+      if (p.v>0) h+='<circle cx="'+p.x+'" cy="'+p.y+'" r="3" fill="'+s.color+'" stroke="white" stroke-width="1.2"/>';
+    });
+  });
+
+  h+='</g></svg></div>';
+
+  // legend
+  h+='<div class="chart-legend">';
+  series.forEach(function(s){
+    h+='<div class="chart-legend-item"><div class="chart-legend-dot" style="background:'+s.color+';border-radius:50%"></div>'+s.label+'</div>';
+  });
+  h+='</div>';
+  return h;
+}
+
 function renderStats() {
   var y=today.getFullYear(),m=today.getMonth()+1;
   var pad=function(n){return String(n).padStart(2,'0');};
@@ -859,6 +987,93 @@ function renderStats() {
     return;
   }
 
+
+  if (statsTab==='trend') {
+    var mo=getMonthlyRevenue(y);
+    var tY=mo.reduce(function(s,d){return s+d.rev;},0);
+    var best=mo.reduce(function(a,b){return b.rev>a.rev?b:a;},mo[0]);
+    // Cumulative revenue line
+    var cumul=0;
+    var cumulData=mo.map(function(d){
+      cumul+=d.rev;
+      return {lb:MONTHS[d.mo].slice(0,3), rv:d.rev, cu:cumul};
+    });
+    var h='<div class="chart-card">';
+    h+='<div class="chart-title">Evolution des revenus - '+y+'</div>';
+    h+='<div class="chart-subtitle">Progression mensuelle &middot; Total : '+tY.toLocaleString('fr-FR')+' &#8364;</div>';
+    h+=svgLineChart({data:cumulData.map(function(d){return {lb:d.lb,rv:d.rv};}),
+      labelKey:'lb',valueKey:'rv',color:'#FF385C',W:320,H:175,
+      formatVal:function(v){return v>=1000?Math.round(v/100)/10+'k&#8364;':v+'&#8364;';}});
+    h+='</div>';
+    h+='<div class="chart-card">';
+    h+='<div class="chart-title">Cumul des revenus - '+y+'</div>';
+    h+='<div class="chart-subtitle">Courbe cumulative &middot; Meilleur mois : '+MONTHS[best.mo]+'</div>';
+    h+=svgLineChart({data:cumulData.map(function(d){return {lb:d.lb,rv:d.cu};}),
+      labelKey:'lb',valueKey:'rv',color:'#1D9E75',W:320,H:175,
+      formatVal:function(v){return v>=1000?Math.round(v/100)/10+'k&#8364;':v+'&#8364;';}});
+    h+='</div>';
+    el.innerHTML=h;
+    return;
+  }
+
+  if (statsTab==='compare') {
+    var yr=getYearlyRevenue();
+    if (yr.length<1){el.innerHTML='<div class="empty-state"><div class="empty-icon">&#128202;</div>Aucune donnee historique</div>';return;}
+    // Build series: one line per year, x-axis = months
+    var COLORS=['#FF385C','#185FA5','#1D9E75','#BA7517','#8B5CF6','#EC4899'];
+    var series=yr.map(function(yd,i){
+      var mo=getMonthlyRevenue(yd.y);
+      return {
+        label:String(yd.y),
+        color:COLORS[i%COLORS.length],
+        data:mo.map(function(d){return {x:MONTHS[d.mo].slice(0,3),v:d.rev};})
+      };
+    });
+    var tAll=yr.reduce(function(s,d){return s+d.rev;},0);
+    var bY=yr.reduce(function(a,b){return b.rev>a.rev?b:a;},yr[0]);
+    var h='<div class="chart-card">';
+    h+='<div class="chart-title">Comparaison revenus par annee</div>';
+    h+='<div class="chart-subtitle">Meilleure annee : '+bY.y+' ('+bY.rev.toLocaleString('fr-FR')+' &#8364;) &middot; Cumul : '+tAll.toLocaleString('fr-FR')+' &#8364;</div>';
+    h+=svgMultiLineChart({series:series,W:320,H:210,
+      formatVal:function(v){return v>=1000?Math.round(v/100)/10+'k&#8364;':v+'&#8364;';}});
+    h+='</div>';
+    // Year-over-year growth
+    if (yr.length>=2) {
+      h+='<div class="chart-card">';
+      h+='<div class="chart-title">Croissance annuelle (%)</div>';
+      var growthData=[];
+      for (var gi=1;gi<yr.length;gi++){
+        var prev2=yr[gi-1].rev, curr2=yr[gi].rev;
+        var pct=prev2>0?Math.round((curr2-prev2)/prev2*100):0;
+        growthData.push({lb:String(yr[gi].y), gw:pct, pos:pct>=0});
+      }
+      // Custom bar chart with positive/negative colors
+      var gcw=320,gch=160,gpT=14,gpB=36,gpL=44,gpR=12;
+      var gcww=gcw-gpL-gpR, gchh=gch-gpT-gpB;
+      var maxG=Math.max.apply(null,growthData.map(function(d){return Math.abs(d.gw);}));
+      maxG=Math.max(maxG,10);
+      var gbW=gcww/growthData.length, gbp=gbW*0.2, gbw=gbW-gbp*2;
+      var midY=(gchh/2).toFixed(1);
+      h+='<div style="position:relative"><svg viewBox="0 0 '+gcw+' '+gch+'" style="width:100%;height:'+gch+'px;display:block;">';
+      h+='<g transform="translate('+gpL+','+gpT+')">';
+      h+='<line x1="0" y1="'+midY+'" x2="'+gcww+'" y2="'+midY+'" stroke="var(--border)" stroke-width="1"/>';
+      h+='<text x="-5" y="'+(parseFloat(midY)+4).toFixed(1)+'" text-anchor="end" font-size="9" fill="var(--text3)">0%</text>';
+      growthData.forEach(function(d,i){
+        var x=i*gbW+gbp;
+        var barH=Math.abs(d.gw)/maxG*(gchh/2);
+        var barY=d.pos?parseFloat(midY)-barH:parseFloat(midY);
+        var col=d.pos?'#1D9E75':'#FF385C';
+        h+='<rect x="'+x.toFixed(1)+'" y="'+barY.toFixed(1)+'" width="'+gbw.toFixed(1)+'" height="'+barH.toFixed(1)+'" rx="2" fill="'+col+'" opacity="0.85"></rect>';
+        h+='<text x="'+(x+gbw/2).toFixed(1)+'" y="'+(gchh+14).toFixed(1)+'" text-anchor="middle" font-size="9" fill="var(--text3)">'+d.lb+'</text>';
+        var lblY=d.pos?barY-3:barY+barH+10;
+        h+='<text x="'+(x+gbw/2).toFixed(1)+'" y="'+lblY.toFixed(1)+'" text-anchor="middle" font-size="8" font-weight="bold" fill="'+col+'">'+(d.gw>0?'+':'')+d.gw+'%</text>';
+      });
+      h+='</g></svg></div>';
+      h+='</div>';
+    }
+    el.innerHTML=h;
+    return;
+  }
   if (statsTab==='annual') {
     var yr=getYearlyRevenue();
     if (!yr.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">&#128202;</div>Aucune donnee</div>';return;}
