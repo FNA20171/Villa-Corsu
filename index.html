@@ -242,7 +242,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--b
         <h3>📅 Calendrier iCal AirBnB</h3>
         <div class="input-group">
           <label>Lien iCal AirBnB (webcal://... ou https://...)</label>
-          <input type="url" id="ical-input" placeholder="webcal://www.airbnb.fr/calendar/ical/..." inputmode="url"/>
+          <input type="url" id="ical-input" value="https://www.airbnb.fr/calendar/ical/11135616.ics?t=98ad8ce7c2f748e285be23d07d007d85" inputmode="url"/>
         </div>
         <button class="pwa-btn btn-primary" onclick="syncIcal()">🔄 Synchroniser</button>
         <button class="pwa-btn btn-secondary" onclick="loadDemo()">Données démo</button>
@@ -808,8 +808,14 @@ if ('serviceWorker' in navigator) {
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────
+const DEFAULT_ICAL = 'https://www.airbnb.fr/calendar/ical/11135616.ics?t=98ad8ce7c2f748e285be23d07d007d85';
 loadStored();
-refresh();
+if (!bookings.length) {
+  document.getElementById('ical-input').value = DEFAULT_ICAL;
+  syncIcal();
+} else {
+  refresh();
+}
 checkAndNotify();
 </script>
 </body>
