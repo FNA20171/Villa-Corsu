@@ -509,65 +509,62 @@ function loadDemo() {
   showStatus('sync-status','Données de démonstration chargées','ok');
 }
 
-// ── iCal sync — cascade de proxies ───────────────────────────────────────
-const PROXIES = [
-  u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-  u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
-  u => `https://proxy.cors.sh/${u}`,
-  u => `https://cors-anywhere.herokuapp.com/${u}`,
-  u => `https://thingproxy.freeboard.io/fetch/${u}`,
+// -- iCal sync - cascade de proxies (compat Android WebView)
+var PROXIES = [
+  function(u){return 'https://api.allorigins.win/raw?url='+encodeURIComponent(u);},
+  function(u){return 'https://corsproxy.io/?'+encodeURIComponent(u);},
+  function(u){return 'https://proxy.cors.sh/'+u;},
+  function(u){return 'https://thingproxy.freeboard.io/fetch/'+u;}
 ];
 
-async function tryFetch(url, timeoutMs=10000) {
-  const r = await fetch(url, {signal: AbortSignal.timeout(timeoutMs)});
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-  const text = await r.text();
-  if (!text.includes('BEGIN:VCALENDAR')) throw new Error('Réponse invalide');
-  return text;
+function fetchWithTimeout(url, ms, onOk, onErr) {
+  var done = false;
+  var t = setTimeout(function(){ if(!done){done=true;onErr(new Error('Timeout'));} }, ms);
+  fetch(url)
+    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
+    .then(function(txt2){
+      clearTimeout(t); if(done) return; done=true;
+      if(txt2.indexOf('BEGIN:VCALENDAR')<0) { onErr(new Error('Reponse invalide')); return; }
+      onOk(txt2);
+    })
+    .catch(function(e){ clearTimeout(t); if(done) return; done=true; onErr(e); });
 }
 
-async function syncIcal() {
-  const raw = document.getElementById('ical-input').value.trim();
+function syncIcal() {
+  var raw = document.getElementById('ical-input').value.trim();
   if (!raw) { showStatus('sync-status','Veuillez coller votre lien iCal AirBnB','err'); return; }
-  const url = raw.replace('webcal://','https://');
-  showStatus('sync-status','Connexion en cours… (tentative 1/'+PROXIES.length+')','loading');
-
-  let lastErr = '';
-  for (let i = 0; i < PROXIES.length; i++) {
-    const proxyUrl = PROXIES[i](url);
-    showStatus('sync-status', `Tentative ${i+1} / ${PROXIES.length}…`, 'loading');
-    try {
-      const text = await tryFetch(proxyUrl);
-      const parsed = parseIcal(text);
-      bookings = parsed;
-      icalUrl  = raw;
-      save(); refresh();
-      showStatus('sync-status', `✓ ${parsed.length} réservation(s) importée(s)`, 'ok');
+  var url = raw.replace('webcal://','https://');
+  var idx = 0;
+  function tryNext() {
+    if (idx >= PROXIES.length) {
+      showStatus('sync-status','Synchro impossible. Utilisez le collage manuel ci-dessous.','err');
       return;
-    } catch(e) {
-      lastErr = e.message;
     }
+    var proxyUrl = PROXIES[idx](url);
+    showStatus('sync-status','Tentative '+(idx+1)+' / '+PROXIES.length+'...','loading');
+    idx++;
+    fetchWithTimeout(proxyUrl, 10000,
+      function(text) {
+        var parsed = parseIcal(text);
+        bookings = parsed; icalUrl = raw;
+        save(); refresh();
+        showStatus('sync-status', parsed.length+' reservation(s) importee(s)', 'ok');
+      },
+      function(e) { tryNext(); }
+    );
   }
-  // Tous les proxies ont échoué
-  showStatus('sync-status',
-    `Synchro impossible (${lastErr}). Utilisez le collage manuel ci-dessous.`, 'err');
+  tryNext();
 }
 
 function parseFromPaste() {
-  const text = document.getElementById('ical-paste').value.trim();
-  if (!text) { showStatus('sync-status','Collez d\'abord le contenu iCal','err'); return; }
-  if (!text.includes('BEGIN:VCALENDAR')) {
-    showStatus('sync-status','Ce texte ne ressemble pas à un fichier iCal valide','err'); return;
-  }
-  const parsed = parseIcal(text);
-  if (!parsed.length) {
-    showStatus('sync-status','Aucune réservation trouvée dans ce calendrier','err'); return;
-  }
-  bookings = parsed;
-  save(); refresh();
-  showStatus('sync-status', `✓ ${parsed.length} réservation(s) importée(s) depuis le texte`, 'ok');
+  var text = document.getElementById('ical-paste').value.trim();
+  if (!text) { showStatus('sync-status',"Collez d'abord le contenu iCal",'err'); return; }
+  if (text.indexOf('BEGIN:VCALENDAR')<0) { showStatus('sync-status','Fichier iCal invalide','err'); return; }
+  var parsed = parseIcal(text);
+  if (!parsed.length) { showStatus('sync-status','Aucune reservation trouvee','err'); return; }
+  bookings = parsed; save(); refresh();
+  showStatus('sync-status', parsed.length+' reservation(s) importee(s) depuis le texte', 'ok');
 }
-
 function parseIcal(text) {
   const events = [];
   const BLOCKED_RE = /not available|airbnb|indisponible|blocked|unavailable|preparation|ménage|cleaning/i;
@@ -957,16 +954,19 @@ function saveNewBooking() {
 }
 
 // ── Notifications ─────────────────────────────────────────────────────────
-async function requestNotifPerm() {
+function requestNotifPerm() {
   if (!('Notification' in window)) {
-    showStatus('notif-status','Notifications non supportées sur ce navigateur','err'); return;
+    showStatus('notif-status','Notifications non supportees sur ce navigateur','err'); return;
   }
-  const perm = await Notification.requestPermission();
-  if (perm === 'granted') {
-    showStatus('notif-status','Notifications activées !','ok');
-    scheduleNotifications();
+  var p = Notification.requestPermission();
+  if (p && typeof p.then === 'function') {
+    p.then(function(perm) {
+      if (perm==='granted') { showStatus('notif-status','Notifications activees !','ok'); scheduleNotifications(); }
+      else { showStatus('notif-status','Permission refusee - activez dans les parametres Android','err'); }
+    });
   } else {
-    showStatus('notif-status','Permission refusée — activez dans les paramètres Android','err');
+    if (Notification.permission==='granted') { showStatus('notif-status','Notifications activees !','ok'); scheduleNotifications(); }
+    else { showStatus('notif-status','Permission refusee','err'); }
   }
 }
 function scheduleNotifications() {
@@ -1189,17 +1189,22 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(()=>{});
 }
 
-// ── Init ──────────────────────────────────────────────────────────────────
-const DEFAULT_ICAL = 'https://www.airbnb.fr/calendar/ical/11135616.ics?t=98ad8ce7c2f748e285be23d07d007d85';
-loadStored();
-if (!bookings.length) {
-  document.getElementById('ical-input').value = DEFAULT_ICAL;
-  syncIcal();
-} else {
-  refresh();
+// -- Init
+var DEFAULT_ICAL = 'https://www.airbnb.fr/calendar/ical/11135616.ics?t=98ad8ce7c2f748e285be23d07d007d85';
+try {
+  loadStored();
+  if (!bookings.length) {
+    document.getElementById('ical-input').value = DEFAULT_ICAL;
+    syncIcal();
+  } else {
+    refresh();
+  }
+  initSwipe();
+  checkAndNotify();
+} catch(e) {
+  console.error('Init error:', e);
+  try { refresh(); } catch(e2) {}
 }
-initSwipe();
-checkAndNotify();
 </script>
 </body>
 </html>
