@@ -198,6 +198,16 @@ html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--b
 .yms-item{text-align:center;}
 .yms-val{font-size:11px;font-weight:600;}
 .yms-lbl{font-size:9px;color:var(--text3);}
+
+/* ── Swipe ── */
+.swipe-zone{touch-action:pan-y;user-select:none;}
+.cal-slide{transition:transform .22s cubic-bezier(.4,0,.2,1),opacity .22s;will-change:transform,opacity;}
+.cal-slide.slide-out-left {transform:translateX(-60px);opacity:0;pointer-events:none;}
+.cal-slide.slide-out-right{transform:translateX( 60px);opacity:0;pointer-events:none;}
+.cal-slide.slide-in-left  {animation:slideInL .22s cubic-bezier(.4,0,.2,1) forwards;}
+.cal-slide.slide-in-right {animation:slideInR .22s cubic-bezier(.4,0,.2,1) forwards;}
+@keyframes slideInL{from{transform:translateX(60px);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes slideInR{from{transform:translateX(-60px);opacity:0}to{transform:translateX(0);opacity:1}}
 </style>
 </head>
 <body>
@@ -227,9 +237,13 @@ html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--b
         <span class="cal-month" id="cal-month-lbl"></span>
         <button class="cal-nav-btn" onclick="calNav(1)">›</button>
       </div>
-      <div class="cal-grid">
-        <div class="cal-days-header" id="cal-day-headers"></div>
-        <div class="cal-body" id="cal-body"></div>
+      <div class="swipe-zone" id="cal-swipe-zone">
+        <div class="cal-slide" id="cal-slide">
+          <div class="cal-grid">
+            <div class="cal-days-header" id="cal-day-headers"></div>
+            <div class="cal-body" id="cal-body"></div>
+          </div>
+        </div>
       </div>
       <div class="cal-legend">
         <div class="legend-item"><div class="legend-dot" style="background:var(--airbnb)"></div>Arrivée</div>
@@ -315,7 +329,11 @@ html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--b
         <span class="year-label" id="year-label"></span>
         <button class="year-nav-btn" onclick="yearNav(1)">›</button>
       </div>
-      <div class="year-grid" id="year-grid"></div>
+      <div class="swipe-zone" id="year-swipe-zone">
+        <div class="cal-slide" id="year-slide">
+          <div class="year-grid" id="year-grid"></div>
+        </div>
+      </div>
     </div>
 
   </div><!-- /pages -->
@@ -922,6 +940,47 @@ function refresh() {
   renderMetrics(); renderCalendar(); renderList();
 }
 
+
+// ── Swipe gestures ────────────────────────────────────────────────────────
+function makeSwipeable(zoneId, slideId, onLeft, onRight) {
+  const zone = document.getElementById(zoneId);
+  if (!zone) return;
+  let startX = 0, startY = 0, moved = false;
+
+  zone.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    moved  = false;
+  }, {passive: true});
+
+  zone.addEventListener('touchmove', e => {
+    moved = true;
+  }, {passive: true});
+
+  zone.addEventListener('touchend', e => {
+    if (!moved) return;
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+    if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx) * 0.8) return;
+
+    const slide = document.getElementById(slideId);
+    if (dx < 0) {
+      // swipe left → next
+      slide.classList.add('slide-out-left');
+      setTimeout(() => { slide.classList.remove('slide-out-left'); onLeft(); slide.classList.add('slide-in-left'); setTimeout(() => slide.classList.remove('slide-in-left'), 250); }, 180);
+    } else {
+      // swipe right → prev
+      slide.classList.add('slide-out-right');
+      setTimeout(() => { slide.classList.remove('slide-out-right'); onRight(); slide.classList.add('slide-in-right'); setTimeout(() => slide.classList.remove('slide-in-right'), 250); }, 180);
+    }
+  }, {passive: true});
+}
+
+function initSwipe() {
+  makeSwipeable('cal-swipe-zone',  'cal-slide',  () => calNav(1),  () => calNav(-1));
+  makeSwipeable('year-swipe-zone', 'year-slide', () => yearNav(1), () => yearNav(-1));
+}
+
 // ── Service Worker ────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(()=>{});
@@ -936,6 +995,7 @@ if (!bookings.length) {
 } else {
   refresh();
 }
+initSwipe();
 checkAndNotify();
 </script>
 </body>
