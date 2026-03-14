@@ -84,6 +84,11 @@ html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--b
 .cal-cell.checkin{background:var(--airbnb);color:#fff;font-weight:600;border-radius:8px 0 0 8px;}
 .cal-cell.staying{background:var(--airbnb-pale);color:var(--airbnb);font-weight:500;}
 .cal-cell.checkout{background:var(--airbnb-pale);color:var(--airbnb);border-radius:0 8px 8px 0;}
+.cal-cell.blocked{background:var(--bg3);color:var(--text3)!important;opacity:.6;}
+.cal-cell.past{opacity:.38;}
+.cal-cell-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;gap:1px;}
+.cal-cell-num{font-size:13px;line-height:1;}
+.cal-cell-name{font-size:7px;line-height:1;max-width:90%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.9;}
 .cal-cell.tappable{cursor:pointer;}
 .cal-cell.tappable:active{transform:scale(.92);}
 .cal-legend{display:flex;gap:16px;padding:12px 16px 4px;flex-wrap:wrap;}
@@ -198,6 +203,13 @@ html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--b
 .yms-item{text-align:center;}
 .yms-val{font-size:11px;font-weight:600;}
 .yms-lbl{font-size:9px;color:var(--text3);}
+.mini-cell.mc-other{color:var(--text3);}
+.mini-cell.mc-today{border:1.5px solid var(--airbnb);color:var(--airbnb);font-weight:700;}
+.mini-cell.mc-checkin{background:var(--airbnb);color:#fff;font-weight:700;border-radius:3px 0 0 3px;}
+.mini-cell.mc-staying{background:var(--airbnb-pale);}
+.mini-cell.mc-checkout{background:var(--airbnb-pale);border-radius:0 3px 3px 0;}
+.mini-cell.mc-blocked{background:var(--bg3);color:var(--text3)!important;}
+.mini-cell.mc-past{opacity:.35;}
 
 /* ── Swipe ── */
 .swipe-zone{touch-action:pan-y;user-select:none;}
@@ -248,6 +260,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--b
       <div class="cal-legend">
         <div class="legend-item"><div class="legend-dot" style="background:var(--airbnb)"></div>Arrivée</div>
         <div class="legend-item"><div class="legend-dot" style="background:var(--airbnb-pale);border:1px solid var(--airbnb)"></div>Séjour</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--bg3);border:1px solid var(--border)"></div>Indisponible</div>
         <div class="legend-item"><div class="legend-dot" style="border:2px solid var(--airbnb)"></div>Aujourd'hui</div>
       </div>
     </div>
@@ -436,13 +449,38 @@ function demoData() {
   const pm = m === 1 ? 12 : m-1, py = m === 1 ? y-1 : y;
   const nm = m === 12 ? 1 : m+1, ny = m === 12 ? y+1 : y;
   const pad = n => String(n).padStart(2,'0');
-  return [
+  // Current year
+  const curr = [
     {id:'d1',guest:'Sophie Martin',origin:'Paris, France',checkin:`${y}-${pad(m)}-05`,checkout:`${y}-${pad(m)}-10`,nights:5,revenue:750,status:'confirmed',guests:2,phone:'+33 6 12 34 56 78',note:'Demande lit bébé'},
     {id:'d2',guest:'Luca Bianchi',origin:'Milan, Italie',checkin:`${y}-${pad(m)}-14`,checkout:`${y}-${pad(m)}-17`,nights:3,revenue:420,status:'confirmed',guests:2,phone:'+39 348 123 456',note:''},
     {id:'d3',guest:'Emma Schmidt',origin:'Berlin, Allemagne',checkin:`${y}-${pad(m)}-22`,checkout:`${y}-${pad(m)}-29`,nights:7,revenue:980,status:'pending',guests:4,phone:'+49 176 5555 44',note:'Arrivée tardive prévue'},
     {id:'d4',guest:'James Wilson',origin:'Londres, UK',checkin:`${ny}-${pad(nm)}-05`,checkout:`${ny}-${pad(nm)}-12`,nights:7,revenue:1120,status:'confirmed',guests:2,phone:'+44 7700 900456',note:''},
     {id:'d5',guest:'Marie Dupont',origin:'Lyon, France',checkin:`${py}-${pad(pm)}-10`,checkout:`${py}-${pad(pm)}-14`,nights:4,revenue:560,status:'confirmed',guests:3,phone:'+33 6 98 76 54 32',note:''},
   ];
+  // Previous year — spread across all months
+  const py1 = y - 1;
+  const prev = [
+    {id:'p1',guest:'Alice Moreau',origin:'Bordeaux, France',checkin:`${py1}-01-08`,checkout:`${py1}-01-13`,nights:5,revenue:680,status:'confirmed',guests:2,phone:'',note:''},
+    {id:'p2',guest:'Marco Rossi',origin:'Rome, Italie',checkin:`${py1}-02-14`,checkout:`${py1}-02-18`,nights:4,revenue:520,status:'confirmed',guests:2,phone:'',note:'Saint-Valentin'},
+    {id:'p3',guest:'Ingrid Hansen',origin:'Oslo, Norvège',checkin:`${py1}-03-22`,checkout:`${py1}-03-29`,nights:7,revenue:890,status:'confirmed',guests:3,phone:'',note:''},
+    {id:'p4',guest:'Thomas Müller',origin:'Munich, Allemagne',checkin:`${py1}-04-05`,checkout:`${py1}-04-10`,nights:5,revenue:700,status:'confirmed',guests:4,phone:'',note:''},
+    {id:'p5',guest:'Claire Bernard',origin:'Nantes, France',checkin:`${py1}-05-18`,checkout:`${py1}-05-25`,nights:7,revenue:980,status:'confirmed',guests:2,phone:'',note:''},
+    {id:'p6',guest:'David Chen',origin:'Shanghai, Chine',checkin:`${py1}-06-10`,checkout:`${py1}-06-17`,nights:7,revenue:1050,status:'confirmed',guests:2,phone:'',note:''},
+    {id:'p7',guest:'Sara López',origin:'Madrid, Espagne',checkin:`${py1}-07-01`,checkout:`${py1}-07-10`,nights:9,revenue:1350,status:'confirmed',guests:3,phone:'',note:'Haute saison'},
+    {id:'p8',guest:'John Smith',origin:'New York, USA',checkin:`${py1}-07-15`,checkout:`${py1}-07-22`,nights:7,revenue:1100,status:'confirmed',guests:2,phone:'',note:''},
+    {id:'p9',guest:'Fatima Benali',origin:'Casablanca, Maroc',checkin:`${py1}-08-03`,checkout:`${py1}-08-12`,nights:9,revenue:1280,status:'confirmed',guests:4,phone:'',note:''},
+    {id:'p10',guest:'Pierre Leblanc',origin:'Paris, France',checkin:`${py1}-09-08`,checkout:`${py1}-09-13`,nights:5,revenue:650,status:'confirmed',guests:2,phone:'',note:''},
+    {id:'p11',guest:'Yuki Tanaka',origin:'Tokyo, Japon',checkin:`${py1}-10-20`,checkout:`${py1}-10-27`,nights:7,revenue:920,status:'confirmed',guests:2,phone:'',note:''},
+    {id:'p12',guest:'Anna Kowalski',origin:'Varsovie, Pologne',checkin:`${py1}-11-10`,checkout:`${py1}-11-14`,nights:4,revenue:480,status:'confirmed',guests:2,phone:'',note:''},
+    {id:'p13',guest:'Lucas Petit',origin:'Lyon, France',checkin:`${py1}-12-22`,checkout:`${py1}-12-28`,nights:6,revenue:820,status:'confirmed',guests:5,phone:'',note:'Vacances Noël'},
+  ];
+  const py1 = y - 1;
+  const blocked = [
+    {id:'bl1',guest:'',origin:'',checkin:`${y}-${pad(m)}-01`,checkout:`${y}-${pad(m)}-05`,nights:4,revenue:0,status:'blocked',guests:0,phone:'',note:'Not available'},
+    {id:'bl2',guest:'',origin:'',checkin:`${y}-${pad(m)}-10`,checkout:`${y}-${pad(m)}-14`,nights:4,revenue:0,status:'blocked',guests:0,phone:'',note:'Not available'},
+    {id:'bl3',guest:'',origin:'',checkin:`${py1}-07-22`,checkout:`${py1}-07-25`,nights:3,revenue:0,status:'blocked',guests:0,phone:'',note:'Not available'},
+  ];
+  return [...curr, ...prev, ...blocked];
 }
 function loadDemo() {
   bookings = demoData();
@@ -511,6 +549,7 @@ function parseFromPaste() {
 
 function parseIcal(text) {
   const events = [];
+  const BLOCKED_RE = /not available|airbnb|indisponible|blocked|unavailable|preparation|ménage|cleaning/i;
   const blocks  = text.split('BEGIN:VEVENT');
   blocks.slice(1).forEach((block, i) => {
     const get = k => { const m = block.match(new RegExp(k+'[^:]*:([^\\r\\n]+)')); return m ? m[1].trim() : ''; };
@@ -519,10 +558,18 @@ function parseIcal(text) {
     const fmt = s => s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8);
     const cin = fmt(ds), cout = fmt(de);
     const nights = Math.round((new Date(cout)-new Date(cin))/86400000);
-    const gm = (get('DESCRIPTION')+get('SUMMARY')).match(/([A-Z][a-z]+ [A-Z][a-z]+)/);
-    events.push({id:'ic'+i, guest: gm ? gm[1] : get('SUMMARY')||'Voyageur',
+    const summary = get('SUMMARY');
+    const desc    = get('DESCRIPTION');
+    if (BLOCKED_RE.test(summary) || BLOCKED_RE.test(desc)) {
+      events.push({id:'ic'+i, guest:'', origin:'', checkin:cin, checkout:cout,
+        nights, revenue:0, status:'blocked', guests:0, phone:'', note:summary});
+      return;
+    }
+    const gm = (desc+summary).match(/([A-Z][a-zÀ-ÿ]+ [A-Z][a-zÀ-ÿ]+)/);
+    const guestName = gm ? gm[1] : (summary || 'Voyageur');
+    events.push({id:'ic'+i, guest: guestName,
       origin:'', checkin:cin, checkout:cout, nights, revenue:nights*140,
-      status:'confirmed', guests:2, phone:'', note:get('DESCRIPTION').slice(0,80)});
+      status:'confirmed', guests:2, phone:'', note:desc.slice(0,80)});
   });
   return events;
 }
@@ -536,6 +583,7 @@ function renderMetrics() {
   const mEnd   = `${y}-${String(m).padStart(2,'0')}-${String(daysInMonth).padStart(2,'0')}`;
   let mBk=0, mNi=0, mRev=0, nextArr=null;
   bookings.forEach(b => {
+    if (b.status === 'blocked') return;
     if (b.checkin <= mEnd && b.checkout >= mStart) {
       mBk++;
       const s = new Date(Math.max(new Date(b.checkin), new Date(mStart)));
@@ -573,11 +621,16 @@ function renderCalendar() {
   document.getElementById('cal-day-headers').innerHTML = DAYS.map(d =>
     `<div class="cal-day-lbl">${d}</div>`).join('');
 
-  const booked = {};
+  const bookedMap = {}, blockedMap = {};
   bookings.forEach(b => {
     let d = new Date(b.checkin);
     const end = new Date(b.checkout);
-    while (d < end) { booked[fmtDate(d)] = b; d.setDate(d.getDate()+1); }
+    while (d < end) {
+      const s = fmtDate(d);
+      if (b.status === 'blocked') blockedMap[s] = b;
+      else bookedMap[s] = b;
+      d.setDate(d.getDate()+1);
+    }
   });
 
   const first = new Date(navYear, navMonth, 1);
@@ -589,17 +642,29 @@ function renderCalendar() {
   for (let i=0; i<startDow; i++) html += '<div class="cal-cell other"></div>';
   for (let d=1; d<=daysIn; d++) {
     const ds = `${navYear}-${String(navMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const b = booked[ds];
+    const b  = bookedMap[ds];
+    const bl = blockedMap[ds];
+    const isPast = ds < todayStr;
     let cls = 'cal-cell';
+    if (isPast && !b && !bl) cls += ' past';
     if (ds === todayStr) cls += ' today';
+    let inner = '', tap = '';
     if (b) {
       cls += ' tappable';
-      if (ds === b.checkin) cls += ' checkin';
+      if (ds === b.checkin)       cls += ' checkin';
       else if (ds === b.checkout) cls += ' checkout';
-      else cls += ' staying';
+      else                        cls += ' staying';
+      tap = `onclick="openDetail('${b.id}')"`;
+      const firstName = b.guest ? b.guest.split(' ')[0] : '';
+      const showName  = (ds === b.checkin) && firstName;
+      inner = `<div class="cal-cell-wrap"><div class="cal-cell-num">${d}</div>${showName ? `<div class="cal-cell-name">${firstName}</div>` : ''}</div>`;
+    } else if (bl) {
+      cls += ' blocked';
+      inner = `<div class="cal-cell-wrap"><div class="cal-cell-num">${d}</div></div>`;
+    } else {
+      inner = String(d);
     }
-    const tap = b ? `onclick="openDetail('${b.id}')"` : '';
-    html += `<div class="${cls}" ${tap}>${d}</div>`;
+    html += `<div class="${cls}" ${tap}>${inner}</div>`;
   }
   document.getElementById('cal-body').innerHTML = html;
 }
@@ -613,7 +678,7 @@ function calNav(delta) {
 // ── Booking list ──────────────────────────────────────────────────────────
 function renderList() {
   const todayStr = fmtDate(today);
-  let filtered = [...bookings];
+  let filtered = bookings.filter(b => b.status !== 'blocked');
   if (filterMode === 'upcoming') filtered = filtered.filter(b => b.checkin > todayStr);
   if (filterMode === 'current')  filtered = filtered.filter(b => b.checkin <= todayStr && b.checkout > todayStr);
   if (filterMode === 'past')     filtered = filtered.filter(b => b.checkout <= todayStr);
@@ -846,14 +911,19 @@ function renderAnnual() {
   document.getElementById('year-label').textContent = annualYear;
   const todayStr = fmtDate(new Date());
 
-  // Build booked-day lookup for the whole year
-  const booked = {};
+  const bookedY = {}, blockedY = {};
+  const yStart = `${annualYear}-01-01`;
+  const yEnd   = `${annualYear}-12-31`;
   bookings.forEach(b => {
+    if (b.checkout < yStart || b.checkin > yEnd) return;
     let d = new Date(b.checkin);
     const end = new Date(b.checkout);
     while (d < end) {
       const s = fmtDate(d);
-      if (s.startsWith(String(annualYear))) booked[s] = b;
+      if (s >= yStart && s <= yEnd) {
+        if (b.status === 'blocked') blockedY[s] = b;
+        else bookedY[s] = b;
+      }
       d.setDate(d.getDate() + 1);
     }
   });
@@ -871,6 +941,7 @@ function renderAnnual() {
     let mNi = 0, mRev = 0, mBk = 0;
     const seen = new Set();
     bookings.forEach(b => {
+      if (b.status === 'blocked') return;
       const mStart = `${annualYear}-${mStr}-01`;
       const mEnd   = `${annualYear}-${mStr}-${pad(daysInMonth)}`;
       if (b.checkin <= mEnd && b.checkout >= mStart) {
@@ -889,13 +960,18 @@ function renderAnnual() {
     for (let i = 0; i < firstDow; i++) cells += '<div class="mini-cell mc-other"></div>';
     for (let d = 1; d <= daysInMonth; d++) {
       const ds = `${annualYear}-${mStr}-${pad(d)}`;
-      const b  = booked[ds];
+      const b  = bookedY[ds];
+      const bl = blockedY[ds];
+      const isPastC = ds < todayStr;
       let cls  = 'mini-cell';
+      if (isPastC && !b && !bl) cls += ' mc-past';
       if (ds === todayStr) cls += ' mc-today';
       else if (b) {
-        if (ds === b.checkin)  cls += ' mc-checkin';
+        if (ds === b.checkin)       cls += ' mc-checkin';
         else if (ds === b.checkout) cls += ' mc-checkout';
         else cls += ' mc-staying';
+      } else if (bl) {
+        cls += ' mc-blocked';
       }
       const tap = b ? `onclick="openDetail('${b.id}')" style="cursor:pointer"` : '';
       cells += `<div class="${cls}" ${tap}>${d}</div>`;
