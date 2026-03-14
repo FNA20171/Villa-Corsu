@@ -241,12 +241,28 @@ html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--b
       <div class="settings-card">
         <h3>📅 Calendrier iCal AirBnB</h3>
         <div class="input-group">
-          <label>Lien iCal (webcal://... ou https://...)</label>
+          <label>Lien iCal AirBnB (webcal://... ou https://...)</label>
           <input type="url" id="ical-input" placeholder="webcal://www.airbnb.fr/calendar/ical/..." inputmode="url"/>
         </div>
-        <button class="pwa-btn btn-primary" onclick="syncIcal()">Synchroniser le calendrier</button>
-        <button class="pwa-btn btn-secondary" onclick="loadDemo()">Charger les données démo</button>
+        <button class="pwa-btn btn-primary" onclick="syncIcal()">🔄 Synchroniser</button>
+        <button class="pwa-btn btn-secondary" onclick="loadDemo()">Données démo</button>
         <div class="status-msg" id="sync-status"></div>
+        <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px;">
+          <p style="font-size:12px;color:var(--text3);margin-bottom:8px;">Si la synchro échoue, collez directement le contenu iCal :</p>
+          <div class="input-group">
+            <label>Contenu iCal (coller le texte brut)</label>
+            <textarea id="ical-paste" rows="4" placeholder="BEGIN:VCALENDAR&#10;VERSION:2.0&#10;..." style="width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;font-family:monospace;color:var(--text);outline:none;resize:vertical;"></textarea>
+          </div>
+          <button class="pwa-btn btn-secondary" onclick="parseFromPaste()" style="margin-top:0;">📋 Importer le texte collé</button>
+        </div>
+        <div style="margin-top:12px;background:var(--bg3);border-radius:var(--radius-sm);padding:10px 12px;">
+          <p style="font-size:11px;color:var(--text3);line-height:1.6;">
+            <strong style="color:var(--text2);">Comment obtenir le contenu iCal :</strong><br>
+            1. Ouvrez le lien iCal dans votre navigateur<br>
+            2. Sélectionnez tout (Ctrl+A) et copiez (Ctrl+C)<br>
+            3. Collez dans le champ ci-dessus
+          </p>
+        </div>
       </div>
 
       <div class="section-title">Notifications</div>
@@ -380,26 +396,63 @@ function loadDemo() {
   showStatus('sync-status','Données de démonstration chargées','ok');
 }
 
-// ── iCal sync ─────────────────────────────────────────────────────────────
+// ── iCal sync — cascade de proxies ───────────────────────────────────────
+const PROXIES = [
+  u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+  u => `https://proxy.cors.sh/${u}`,
+  u => `https://cors-anywhere.herokuapp.com/${u}`,
+  u => `https://thingproxy.freeboard.io/fetch/${u}`,
+];
+
+async function tryFetch(url, timeoutMs=10000) {
+  const r = await fetch(url, {signal: AbortSignal.timeout(timeoutMs)});
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const text = await r.text();
+  if (!text.includes('BEGIN:VCALENDAR')) throw new Error('Réponse invalide');
+  return text;
+}
+
 async function syncIcal() {
-  const url = document.getElementById('ical-input').value.trim();
-  if (!url) { showStatus('sync-status','Veuillez coller votre lien iCal','err'); return; }
-  showStatus('sync-status','Synchronisation en cours…','loading');
-  const https = url.replace('webcal://','https://');
-  const proxy = 'https://corsproxy.io/?' + encodeURIComponent(https);
-  try {
-    const r = await fetch(proxy, {signal: AbortSignal.timeout(12000)});
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const text = await r.text();
-    const parsed = parseIcal(text);
-    if (!parsed.length) throw new Error('Aucune réservation trouvée');
-    bookings = parsed;
-    icalUrl  = url;
-    save(); refresh();
-    showStatus('sync-status', parsed.length + ' réservation(s) importée(s)','ok');
-  } catch(e) {
-    showStatus('sync-status','Erreur : ' + e.message,'err');
+  const raw = document.getElementById('ical-input').value.trim();
+  if (!raw) { showStatus('sync-status','Veuillez coller votre lien iCal AirBnB','err'); return; }
+  const url = raw.replace('webcal://','https://');
+  showStatus('sync-status','Connexion en cours… (tentative 1/'+PROXIES.length+')','loading');
+
+  let lastErr = '';
+  for (let i = 0; i < PROXIES.length; i++) {
+    const proxyUrl = PROXIES[i](url);
+    showStatus('sync-status', `Tentative ${i+1} / ${PROXIES.length}…`, 'loading');
+    try {
+      const text = await tryFetch(proxyUrl);
+      const parsed = parseIcal(text);
+      bookings = parsed;
+      icalUrl  = raw;
+      save(); refresh();
+      showStatus('sync-status', `✓ ${parsed.length} réservation(s) importée(s)`, 'ok');
+      return;
+    } catch(e) {
+      lastErr = e.message;
+    }
   }
+  // Tous les proxies ont échoué
+  showStatus('sync-status',
+    `Synchro impossible (${lastErr}). Utilisez le collage manuel ci-dessous.`, 'err');
+}
+
+function parseFromPaste() {
+  const text = document.getElementById('ical-paste').value.trim();
+  if (!text) { showStatus('sync-status','Collez d\'abord le contenu iCal','err'); return; }
+  if (!text.includes('BEGIN:VCALENDAR')) {
+    showStatus('sync-status','Ce texte ne ressemble pas à un fichier iCal valide','err'); return;
+  }
+  const parsed = parseIcal(text);
+  if (!parsed.length) {
+    showStatus('sync-status','Aucune réservation trouvée dans ce calendrier','err'); return;
+  }
+  bookings = parsed;
+  save(); refresh();
+  showStatus('sync-status', `✓ ${parsed.length} réservation(s) importée(s) depuis le texte`, 'ok');
 }
 
 function parseIcal(text) {
