@@ -738,206 +738,147 @@ function setFilter(mode, el) {
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────
-// ── Stats helpers ─────────────────────────────────────────────────────────
+// ── Stats helpers ────────────────────────────────────────────────────────────────────────
 let statsTab = 'kpi';
 function setStatsTab(tab, el) {
   statsTab = tab;
-  document.querySelectorAll('.stats-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.stats-tab').forEach(function(t){t.classList.remove('active');});
   el.classList.add('active');
   renderStats();
 }
 
 function getMonthlyRevenue(year) {
-  const pad = n => String(n).padStart(2,'0');
-  return Array.from({length:12}, (_, mo) => {
-    const mStr   = pad(mo+1);
-    const mStart = `${year}-${mStr}-01`;
-    const daysIn = new Date(year, mo+1, 0).getDate();
-    const mEnd   = `${year}-${mStr}-${pad(daysIn)}`;
-    let rev = 0, ni = 0, bk = 0;
-    bookings.forEach(b => {
-      if (b.status === 'blocked' || b.status === 'cancelled') return;
-      if (b.checkin <= mEnd && b.checkout >= mStart) {
-        const s = new Date(Math.max(new Date(b.checkin), new Date(mStart)));
-        const e = new Date(Math.min(new Date(b.checkout), new Date(mEnd)));
-        const n = Math.max(0, Math.round((e-s)/86400000));
-        ni += n; rev += Math.round(b.revenue * n / (b.nights||1)); bk++;
+  var pad=function(n){return String(n).padStart(2,'0');},result=[];
+  for (var mo=0;mo<12;mo++) {
+    var mStr=pad(mo+1),mS=year+'-'+mStr+'-01',dIn=new Date(year,mo+1,0).getDate(),mE=year+'-'+mStr+'-'+pad(dIn);
+    var rev=0,ni=0,bk=0;
+    bookings.forEach(function(b){
+      if (b.status==='blocked'||b.status==='cancelled') return;
+      if (b.checkin<=mE&&b.checkout>=mS){
+        var s=new Date(Math.max(new Date(b.checkin),new Date(mS)));
+        var e=new Date(Math.min(new Date(b.checkout),new Date(mE)));
+        var n=Math.max(0,Math.round((e-s)/86400000));
+        ni+=n; rev+=Math.round(b.revenue*n/(b.nights||1)); bk++;
       }
     });
-    return {mo, rev, ni, bk};
-  });
+    result.push({mo:mo,rev:rev,ni:ni,bk:bk});
+  }
+  return result;
 }
 
 function getYearlyRevenue() {
-  const years = [...new Set(bookings
-    .filter(b => b.status !== 'blocked' && b.status !== 'cancelled')
-    .map(b => b.checkin.slice(0,4)))].map(Number).sort();
-  if (!years.length) return [];
-  // Fill gaps
-  const min = years[0], max = Math.max(...years, today.getFullYear());
-  return Array.from({length: max-min+1}, (_,i) => {
-    const y = min+i;
-    const monthly = getMonthlyRevenue(y);
-    const rev = monthly.reduce((s,m) => s+m.rev, 0);
-    const ni  = monthly.reduce((s,m) => s+m.ni, 0);
-    const bk  = monthly.reduce((s,m) => s+m.bk, 0);
-    return {y, rev, ni, bk};
+  var yrs=[],cy=today.getFullYear();
+  bookings.forEach(function(b){
+    if (b.status==='blocked'||b.status==='cancelled') return;
+    var y=parseInt(b.checkin.slice(0,4));
+    if (yrs.indexOf(y)<0) yrs.push(y);
+  });
+  if (yrs.indexOf(cy)<0) yrs.push(cy);
+  yrs.sort();
+  return yrs.map(function(y){
+    var m=getMonthlyRevenue(y);
+    return {y:y,rev:m.reduce(function(s,d){return s+d.rev;},0),ni:m.reduce(function(s,d){return s+d.ni;},0),bk:m.reduce(function(s,d){return s+d.bk;},0)};
   });
 }
 
-function svgBarChart({data, labelKey, valueKey, valueKey2, color1, color2, label1, label2, W=320, H=160, formatVal}) {
-  if (!data.length) return '<p style="text-align:center;color:var(--text3);font-size:13px;padding:20px;">Aucune donnée</p>';
-  const pad = {t:10, r:8, b:32, l:44};
-  const cw = W - pad.l - pad.r;
-  const ch = H - pad.t - pad.b;
-  const vals = data.flatMap(d => [d[valueKey]||0, d[valueKey2]||0]);
-  const maxV = Math.max(...vals, 1);
-  // Nice round ceiling
-  const mag  = Math.pow(10, Math.floor(Math.log10(maxV)));
-  const ceil = Math.ceil(maxV / mag) * mag;
-  const barW = cw / data.length;
-  const barPad = barW * 0.12;
-  const hasDual = !!valueKey2;
-  const bw = hasDual ? (barW - barPad*2) / 2 - 1 : barW - barPad*2;
-  const fmt = formatVal || (v => v >= 1000 ? Math.round(v/100)/10+'k' : String(v));
-
-  // Y axis grid lines (4)
-  let gridLines = '', yLabels = '';
-  for (let i=0; i<=4; i++) {
-    const yv = (ceil/4)*i;
-    const yy = ch - (yv/ceil)*ch;
-    gridLines += `<line x1="0" y1="${yy.toFixed(1)}" x2="${cw}" y2="${yy.toFixed(1)}" stroke="var(--border)" stroke-width="0.8"/>`;
-    yLabels += `<text x="-5" y="${(yy+4).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--text3)">${fmt(yv)}</text>`;
+function svgBarChart(opts) {
+  var data=opts.data,lk=opts.labelKey,vk=opts.valueKey,vk2=opts.valueKey2||null;
+  var c1=opts.color1,c2=opts.color2||'#185FA5',l1=opts.label1||'',l2=opts.label2||'';
+  var W=opts.W||320,H=opts.H||160;
+  var fv=opts.formatVal||function(v){return v>=1000?Math.round(v/100)/10+'k':String(v);};
+  if (!data||!data.length) return '<p style="text-align:center;color:var(--text3);padding:20px">Aucune donnee</p>';
+  var pT=10,pR=8,pB=32,pL=44,cw=W-pL-pR,ch=H-pT-pB,maxV=1;
+  data.forEach(function(d){if((d[vk]||0)>maxV)maxV=d[vk];if(vk2&&(d[vk2]||0)>maxV)maxV=d[vk2];});
+  var mag=Math.pow(10,Math.floor(Math.log10(maxV))),ceil=Math.ceil(maxV/mag)*mag;
+  var bW=cw/data.length,bp=bW*0.12,hasDual=!!vk2,bw=hasDual?(bW-bp*2)/2-1:bW-bp*2;
+  var h='<div style="position:relative"><svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:'+H+'px;display:block;">';
+  h+='<g transform="translate('+pL+','+pT+')">';
+  for (var gi=0;gi<=4;gi++){
+    var yv=(ceil/4)*gi,yy=(ch-(yv/ceil)*ch).toFixed(1);
+    h+='<line x1="0" y1="'+yy+'" x2="'+cw+'" y2="'+yy+'" stroke="var(--border)" stroke-width="0.8"/>';
+    h+='<text x="-5" y="'+(parseFloat(yy)+4).toFixed(1)+'" text-anchor="end" font-size="9" fill="var(--text3)">'+fv(yv)+'</text>';
   }
-
-  let bars = '', xLabels = '';
-  data.forEach((d, i) => {
-    const x = i * barW;
-    const v1 = d[valueKey]||0;
-    const h1 = (v1/ceil)*ch;
-    const bx1 = x + barPad;
-    bars += `<rect x="${bx1.toFixed(1)}" y="${(ch-h1).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(h1,0).toFixed(1)}"
-      rx="3" fill="${color1}" opacity="0.9">
-      <title>${d[labelKey]}: ${v1.toLocaleString('fr-FR')} €</title></rect>`;
-    if (hasDual) {
-      const v2 = d[valueKey2]||0;
-      const h2 = (v2/ceil)*ch;
-      const bx2 = bx1 + bw + 1;
-      bars += `<rect x="${bx2.toFixed(1)}" y="${(ch-h2).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(h2,0).toFixed(1)}"
-        rx="3" fill="${color2}" opacity="0.85">
-        <title>${d[labelKey]}: ${v2.toLocaleString('fr-FR')} €</title></rect>`;
-    }
-    xLabels += `<text x="${(x + barW/2).toFixed(1)}" y="${(ch+14).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--text3)">${d[labelKey]}</text>`;
+  data.forEach(function(d,i){
+    var x=i*bW,v1=d[vk]||0,h1=Math.max((v1/ceil)*ch,0);
+    h+='<rect x="'+(x+bp).toFixed(1)+'" y="'+(ch-h1).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+h1.toFixed(1)+'" rx="3" fill="'+c1+'" opacity="0.9"></rect>';
+    if (hasDual){var v2=d[vk2]||0,h2=Math.max((v2/ceil)*ch,0);h+='<rect x="'+(x+bp+bw+1).toFixed(1)+'" y="'+(ch-h2).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+h2.toFixed(1)+'" rx="3" fill="'+c2+'" opacity="0.85"></rect>';}
+    h+='<text x="'+(x+bW/2).toFixed(1)+'" y="'+(ch+14).toFixed(1)+'" text-anchor="middle" font-size="9" fill="var(--text3)">'+d[lk]+'</text>';
   });
-
-  const legendHtml = hasDual ? `
-    <div class="chart-legend">
-      <div class="chart-legend-item"><div class="chart-legend-dot" style="background:${color1}"></div>${label1}</div>
-      <div class="chart-legend-item"><div class="chart-legend-dot" style="background:${color2}"></div>${label2}</div>
-    </div>` : '';
-
-  return `<div class="chart-wrap" style="position:relative;">
-    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:${H}px;">
-      <g transform="translate(${pad.l},${pad.t})">
-        ${gridLines}${yLabels}${bars}${xLabels}
-      </g>
-    </svg>
-  </div>${legendHtml}`;
+  h+='</g></svg></div>';
+  if (hasDual){h+='<div class="chart-legend"><div class="chart-legend-item"><div class="chart-legend-dot" style="background:'+c1+'"></div>'+l1+'</div><div class="chart-legend-item"><div class="chart-legend-dot" style="background:'+c2+'"></div>'+l2+'</div></div>';}
+  return h;
 }
 
 function renderStats() {
-  const y = today.getFullYear(), m = today.getMonth()+1;
-  const pad = n => String(n).padStart(2,'0');
+  var y=today.getFullYear(),m=today.getMonth()+1;
+  var pad=function(n){return String(n).padStart(2,'0');};
+  var el=document.getElementById('stats-content');
+  if (!el) return;
 
-  if (statsTab === 'kpi') {
-    const daysInMonth = new Date(y,m,0).getDate();
-    const mStart = `${y}-${pad(m)}-01`;
-    const mEnd   = `${y}-${pad(m)}-${pad(daysInMonth)}`;
-    let totalRev=0, totalNi=0, mRev=0, mNi=0;
-    bookings.forEach(b => {
+  if (statsTab==='kpi') {
+    var dim=new Date(y,m,0).getDate(),ms=y+'-'+pad(m)+'-01',me=y+'-'+pad(m)+'-'+pad(dim);
+    var tRev=0,tNi=0,mRev=0,mNi=0;
+    bookings.forEach(function(b){
       if (b.status==='blocked'||b.status==='cancelled') return;
-      totalRev += b.revenue; totalNi += b.nights;
-      if (b.checkin <= mEnd && b.checkout >= mStart) {
-        const s = new Date(Math.max(new Date(b.checkin), new Date(mStart)));
-        const e = new Date(Math.min(new Date(b.checkout), new Date(mEnd)));
-        const n = Math.max(0, Math.round((e-s)/86400000));
-        mNi += n; mRev += Math.round(b.revenue * n / (b.nights||1));
+      tRev+=b.revenue; tNi+=b.nights;
+      if (b.checkin<=me&&b.checkout>=ms){
+        var s=new Date(Math.max(new Date(b.checkin),new Date(ms)));
+        var e=new Date(Math.min(new Date(b.checkout),new Date(me)));
+        var n=Math.max(0,Math.round((e-s)/86400000));
+        mNi+=n; mRev+=Math.round(b.revenue*n/(b.nights||1));
       }
     });
-    const occ = Math.round(mNi / daysInMonth * 100);
-    const avgPerNight = totalNi ? Math.round(totalRev / totalNi) : 0;
-    const realBk = bookings.filter(b=>b.status!=='cancelled'&&b.status!=='blocked');
-    document.getElementById('stats-content').innerHTML = `
-      <div class="occupancy-bar">
-        <div class="occ-label">Taux d'occupation — ${MONTHS[m-1]}</div>
-        <div class="occ-track"><div class="occ-fill" style="width:0%" id="occ-bar"></div></div>
-        <div class="occ-pct">${occ}% (${mNi} / ${daysInMonth} nuits)</div>
-      </div>
-      <div class="stats-row">
-        <div class="stat-card"><div class="s-label">Revenus ce mois</div><div class="s-value" style="color:var(--green)">${mRev.toLocaleString('fr-FR')} €</div></div>
-        <div class="stat-card"><div class="s-label">Revenus total</div><div class="s-value" style="color:var(--green)">${totalRev.toLocaleString('fr-FR')} €</div></div>
-        <div class="stat-card"><div class="s-label">Prix / nuit moyen</div><div class="s-value">${avgPerNight} €</div></div>
-        <div class="stat-card"><div class="s-label">Nuits total</div><div class="s-value" style="color:var(--orange)">${totalNi}</div></div>
-        <div class="stat-card"><div class="s-label">Séjours</div><div class="s-value" style="color:var(--airbnb)">${realBk.length}</div></div>
-        <div class="stat-card"><div class="s-label">Durée moy.</div><div class="s-value">${realBk.length ? (totalNi/realBk.length).toFixed(1) : '0'}n</div></div>
-      </div>`;
-    setTimeout(() => { const bar=document.getElementById('occ-bar'); if(bar) bar.style.width=occ+'%'; }, 100);
+    var occ=Math.round(mNi/dim*100),apn=tNi?Math.round(tRev/tNi):0;
+    var rb=bookings.filter(function(b){return b.status!=='cancelled'&&b.status!=='blocked';});
+    var h='<div class="occupancy-bar"><div class="occ-label">Taux occupation - '+MONTHS[m-1]+'</div>';
+    h+='<div class="occ-track"><div class="occ-fill" style="width:0%" id="occ-bar"></div></div>';
+    h+='<div class="occ-pct">'+occ+'% ('+mNi+' / '+dim+' nuits)</div></div>';
+    h+='<div class="stats-row">';
+    h+='<div class="stat-card"><div class="s-label">Revenus ce mois</div><div class="s-value" style="color:var(--green)">'+mRev.toLocaleString('fr-FR')+' &#8364;</div></div>';
+    h+='<div class="stat-card"><div class="s-label">Revenus total</div><div class="s-value" style="color:var(--green)">'+tRev.toLocaleString('fr-FR')+' &#8364;</div></div>';
+    h+='<div class="stat-card"><div class="s-label">Prix/nuit moy.</div><div class="s-value">'+apn+' &#8364;</div></div>';
+    h+='<div class="stat-card"><div class="s-label">Nuits total</div><div class="s-value" style="color:var(--orange)">'+tNi+'</div></div>';
+    h+='<div class="stat-card"><div class="s-label">Sejours</div><div class="s-value" style="color:var(--airbnb)">'+rb.length+'</div></div>';
+    h+='<div class="stat-card"><div class="s-label">Duree moy.</div><div class="s-value">'+(rb.length?(tNi/rb.length).toFixed(1):'0')+'n</div></div>';
+    h+='</div>';
+    el.innerHTML=h;
+    setTimeout(function(){var b=document.getElementById('occ-bar');if(b)b.style.width=occ+'%';},100);
     return;
   }
 
-  if (statsTab === 'monthly') {
-    const monthly = getMonthlyRevenue(y);
-    const chartData = monthly.map(d => ({
-      label: MONTHS[d.mo].slice(0,3),
-      rev:   d.rev,
-      ni:    d.ni * 25   // scale nights to be visually comparable (approx avg nightly rate)
-    }));
-    const totalYear = monthly.reduce((s,d)=>s+d.rev,0);
-    const bestMo    = monthly.reduce((a,b)=>b.rev>a.rev?b:a, monthly[0]);
-    const avgMo     = Math.round(totalYear / 12);
-    document.getElementById('stats-content').innerHTML = `
-      <div class="chart-card">
-        <div class="chart-title">Revenus mensuels — ${y}</div>
-        <div class="chart-subtitle">Total : ${totalYear.toLocaleString('fr-FR')} € · Meilleur mois : ${MONTHS[bestMo.mo]} (${bestMo.rev.toLocaleString('fr-FR')} €)</div>
-        ${svgBarChart({data: monthly.map(d=>({label:MONTHS[d.mo].slice(0,3), rev:d.rev, ni:d.ni})),
-          labelKey:'label', valueKey:'rev', color1:'#FF385C',
-          W:320, H:170, formatVal: v => v>=1000 ? Math.round(v/100)/10+'k€' : v+'€'})}
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">Nuits louées par mois — ${y}</div>
-        <div class="chart-subtitle">Total : ${monthly.reduce((s,d)=>s+d.ni,0)} nuits · Moy. : ${avgMo.toLocaleString('fr-FR')} €/mois</div>
-        ${svgBarChart({data: monthly.map(d=>({label:MONTHS[d.mo].slice(0,3), ni:d.ni})),
-          labelKey:'label', valueKey:'ni', color1:'#1D9E75',
-          W:320, H:150, formatVal: v => v+'n'})}
-      </div>`;
+  if (statsTab==='monthly') {
+    var mo=getMonthlyRevenue(y);
+    var tY=mo.reduce(function(s,d){return s+d.rev;},0);
+    var best=mo.reduce(function(a,b){return b.rev>a.rev?b:a;},mo[0]);
+    var tN=mo.reduce(function(s,d){return s+d.ni;},0);
+    var h='<div class="chart-card">';
+    h+='<div class="chart-title">Revenus mensuels - '+y+'</div>';
+    h+='<div class="chart-subtitle">Total : '+tY.toLocaleString('fr-FR')+' &#8364; &middot; Meilleur : '+MONTHS[best.mo]+' ('+best.rev.toLocaleString('fr-FR')+' &#8364;)</div>';
+    h+=svgBarChart({data:mo.map(function(d){return {lb:MONTHS[d.mo].slice(0,3),rv:d.rev};}),labelKey:'lb',valueKey:'rv',color1:'#FF385C',W:320,H:170,formatVal:function(v){return v>=1000?Math.round(v/100)/10+'k&#8364;':v+'&#8364;';}});
+    h+='</div><div class="chart-card">';
+    h+='<div class="chart-title">Nuits louees par mois - '+y+'</div>';
+    h+='<div class="chart-subtitle">Total : '+tN+' nuits &middot; Moy. : '+Math.round(tY/12).toLocaleString('fr-FR')+' &#8364;/mois</div>';
+    h+=svgBarChart({data:mo.map(function(d){return {lb:MONTHS[d.mo].slice(0,3),ni:d.ni};}),labelKey:'lb',valueKey:'ni',color1:'#1D9E75',W:320,H:150,formatVal:function(v){return v+'n';}});
+    h+='</div>';
+    el.innerHTML=h;
     return;
   }
 
-  if (statsTab === 'annual') {
-    const yearly = getYearlyRevenue();
-    if (!yearly.length) {
-      document.getElementById('stats-content').innerHTML =
-        '<div class="empty-state"><div class="empty-icon">📊</div>Aucune donnée historique</div>';
-      return;
-    }
-    const totalAll = yearly.reduce((s,d)=>s+d.rev,0);
-    const bestY    = yearly.reduce((a,b)=>b.rev>a.rev?b:a, yearly[0]);
-    document.getElementById('stats-content').innerHTML = `
-      <div class="chart-card">
-        <div class="chart-title">Revenus par année</div>
-        <div class="chart-subtitle">Cumul : ${totalAll.toLocaleString('fr-FR')} € · Meilleure année : ${bestY.y} (${bestY.rev.toLocaleString('fr-FR')} €)</div>
-        ${svgBarChart({data: yearly.map(d=>({label:String(d.y), rev:d.rev})),
-          labelKey:'label', valueKey:'rev', color1:'#FF385C',
-          W:320, H:180, formatVal: v => v>=1000 ? Math.round(v/100)/10+'k€' : v+'€'})}
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">Nuits louées par année</div>
-        <div class="chart-subtitle">Total : ${yearly.reduce((s,d)=>s+d.ni,0)} nuits · ${yearly.reduce((s,d)=>s+d.bk,0)} séjours</div>
-        ${svgBarChart({data: yearly.map(d=>({label:String(d.y), ni:d.ni, bk:d.bk*3})),
-          labelKey:'label', valueKey:'ni', valueKey2:'bk',
-          color1:'#1D9E75', color2:'#185FA5', label1:'Nuits', label2:'Séjours (×3)',
-          W:320, H:165, formatVal: v => v+'n'})}
-      </div>`;
+  if (statsTab==='annual') {
+    var yr=getYearlyRevenue();
+    if (!yr.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">&#128202;</div>Aucune donnee</div>';return;}
+    var tA=yr.reduce(function(s,d){return s+d.rev;},0),bY=yr.reduce(function(a,b){return b.rev>a.rev?b:a;},yr[0]);
+    var tNA=yr.reduce(function(s,d){return s+d.ni;},0),tBA=yr.reduce(function(s,d){return s+d.bk;},0);
+    var h='<div class="chart-card">';
+    h+='<div class="chart-title">Revenus par annee</div>';
+    h+='<div class="chart-subtitle">Cumul : '+tA.toLocaleString('fr-FR')+' &#8364; &middot; Meilleure : '+bY.y+' ('+bY.rev.toLocaleString('fr-FR')+' &#8364;)</div>';
+    h+=svgBarChart({data:yr.map(function(d){return {lb:String(d.y),rv:d.rev};}),labelKey:'lb',valueKey:'rv',color1:'#FF385C',W:320,H:180,formatVal:function(v){return v>=1000?Math.round(v/100)/10+'k&#8364;':v+'&#8364;';}});
+    h+='</div><div class="chart-card">';
+    h+='<div class="chart-title">Nuits louees par annee</div>';
+    h+='<div class="chart-subtitle">Total : '+tNA+' nuits &middot; '+tBA+' sejours</div>';
+    h+=svgBarChart({data:yr.map(function(d){return {lb:String(d.y),ni:d.ni,bk:d.bk*3};}),labelKey:'lb',valueKey:'ni',valueKey2:'bk',color1:'#1D9E75',color2:'#185FA5',label1:'Nuits',label2:'Sejours (x3)',W:320,H:165,formatVal:function(v){return v+'n';}});
+    h+='</div>';
+    el.innerHTML=h;
     return;
   }
 }
