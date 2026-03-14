@@ -177,6 +177,27 @@ html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--b
 .notif-banner.show{display:flex;gap:8px;align-items:flex-start;}
 .empty-state{text-align:center;padding:40px 20px;color:var(--text3);font-size:14px;}
 .empty-icon{font-size:40px;margin-bottom:10px;}
+
+/* ── Annual view ── */
+.year-nav{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 6px;}
+.year-nav-btn{background:var(--bg3);border:none;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;color:var(--text);display:flex;align-items:center;justify-content:center;}
+.year-label{font-size:17px;font-weight:600;}
+.year-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 12px 16px;}
+.mini-month{background:var(--bg2);border-radius:var(--radius-sm);padding:10px;box-shadow:var(--card-shadow);}
+.mini-month-title{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;text-align:center;}
+.mini-days-hdr{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:2px;}
+.mini-day-lbl{text-align:center;font-size:8px;color:var(--text3);}
+.mini-cal-body{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;}
+.mini-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:8.5px;border-radius:3px;}
+.mini-cell.mc-other{color:var(--text3);}
+.mini-cell.mc-today{border:1.5px solid var(--airbnb);color:var(--airbnb);font-weight:700;}
+.mini-cell.mc-checkin{background:var(--airbnb);color:#fff;font-weight:700;border-radius:3px 0 0 3px;}
+.mini-cell.mc-staying{background:var(--airbnb-pale);}
+.mini-cell.mc-checkout{background:var(--airbnb-pale);border-radius:0 3px 3px 0;}
+.year-month-stats{display:flex;justify-content:space-between;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);}
+.yms-item{text-align:center;}
+.yms-val{font-size:11px;font-weight:600;}
+.yms-lbl{font-size:9px;color:var(--text3);}
 </style>
 </head>
 <body>
@@ -288,6 +309,17 @@ html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--b
 
   </div><!-- /pages -->
 
+
+    <!-- PAGE: Annual -->
+    <div class="page" id="page-annual">
+      <div class="year-nav">
+        <button class="year-nav-btn" onclick="yearNav(-1)">‹</button>
+        <span class="year-label" id="year-label"></span>
+        <button class="year-nav-btn" onclick="yearNav(1)">›</button>
+      </div>
+      <div class="year-grid" id="year-grid"></div>
+    </div>
+
   <!-- Bottom tab bar -->
   <div class="tabbar">
     <button class="tab-item active" onclick="showPage('home',this)">
@@ -297,6 +329,10 @@ html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--b
     <button class="tab-item" onclick="showPage('resa',this)">
       <span class="tab-icon">📋</span>
       <span>Séjours</span>
+    </button>
+    <button class="tab-item" onclick="showPage('annual',this)">
+      <span class="tab-icon">🗓️</span>
+      <span>Année</span>
     </button>
     <button class="tab-item" onclick="showPage('stats',this)">
       <span class="tab-icon">📊</span>
@@ -779,6 +815,89 @@ function clearData() {
   refresh();
 }
 
+
+// ── Annual view ───────────────────────────────────────────────────────────
+let annualYear = new Date().getFullYear();
+
+function yearNav(delta) {
+  annualYear += delta;
+  renderAnnual();
+}
+
+function renderAnnual() {
+  document.getElementById('year-label').textContent = annualYear;
+  const todayStr = fmtDate(new Date());
+
+  // Build booked-day lookup for the whole year
+  const booked = {};
+  bookings.forEach(b => {
+    let d = new Date(b.checkin);
+    const end = new Date(b.checkout);
+    while (d < end) {
+      const s = fmtDate(d);
+      if (s.startsWith(String(annualYear))) booked[s] = b;
+      d.setDate(d.getDate() + 1);
+    }
+  });
+
+  const DAYS_MINI = ['L','M','M','J','V','S','D'];
+  let html = '';
+
+  for (let mo = 0; mo < 12; mo++) {
+    const daysInMonth = new Date(annualYear, mo + 1, 0).getDate();
+    const firstDow    = (new Date(annualYear, mo, 1).getDay() + 6) % 7;
+    const pad = n => String(n).padStart(2,'0');
+    const mStr = pad(mo + 1);
+
+    // month stats
+    let mNi = 0, mRev = 0, mBk = 0;
+    const seen = new Set();
+    bookings.forEach(b => {
+      const mStart = `${annualYear}-${mStr}-01`;
+      const mEnd   = `${annualYear}-${mStr}-${pad(daysInMonth)}`;
+      if (b.checkin <= mEnd && b.checkout >= mStart) {
+        const s = new Date(Math.max(new Date(b.checkin), new Date(mStart)));
+        const e = new Date(Math.min(new Date(b.checkout), new Date(mEnd)));
+        const n = Math.max(0, Math.round((e - s) / 86400000));
+        mNi += n;
+        mRev += Math.round(b.revenue * n / (b.nights || 1));
+        if (!seen.has(b.id)) { seen.add(b.id); mBk++; }
+      }
+    });
+    const occ = Math.round(mNi / daysInMonth * 100);
+
+    // mini calendar cells
+    let cells = '';
+    for (let i = 0; i < firstDow; i++) cells += '<div class="mini-cell mc-other"></div>';
+    for (let d = 1; d <= daysInMonth; d++) {
+      const ds = `${annualYear}-${mStr}-${pad(d)}`;
+      const b  = booked[ds];
+      let cls  = 'mini-cell';
+      if (ds === todayStr) cls += ' mc-today';
+      else if (b) {
+        if (ds === b.checkin)  cls += ' mc-checkin';
+        else if (ds === b.checkout) cls += ' mc-checkout';
+        else cls += ' mc-staying';
+      }
+      const tap = b ? `onclick="openDetail('${b.id}')" style="cursor:pointer"` : '';
+      cells += `<div class="${cls}" ${tap}>${d}</div>`;
+    }
+
+    html += `<div class="mini-month">
+      <div class="mini-month-title">${MONTHS[mo]}</div>
+      <div class="mini-days-hdr">${DAYS_MINI.map(d => `<div class="mini-day-lbl">${d}</div>`).join('')}</div>
+      <div class="mini-cal-body">${cells}</div>
+      <div class="year-month-stats">
+        <div class="yms-item"><div class="yms-val" style="color:var(--airbnb)">${mBk}</div><div class="yms-lbl">séjours</div></div>
+        <div class="yms-item"><div class="yms-val" style="color:var(--orange)">${mNi}n</div><div class="yms-lbl">nuits</div></div>
+        <div class="yms-item"><div class="yms-val">${occ}%</div><div class="yms-lbl">occup.</div></div>
+        <div class="yms-item"><div class="yms-val" style="color:var(--green)">${mRev > 0 ? mRev.toLocaleString('fr-FR')+'€' : '—'}</div><div class="yms-lbl">revenus</div></div>
+      </div>
+    </div>`;
+  }
+  document.getElementById('year-grid').innerHTML = html;
+}
+
 // ── Navigation ────────────────────────────────────────────────────────────
 function showPage(name, el) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -787,6 +906,7 @@ function showPage(name, el) {
   el.classList.add('active');
   if (name==='stats') renderStats();
   if (name==='resa') renderList();
+  if (name==='annual') { annualYear = new Date().getFullYear(); renderAnnual(); }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
