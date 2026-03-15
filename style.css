@@ -1,0 +1,578 @@
+/* ===== Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --blue: #378ADD;
+  --blue-light: #e6f1fb;
+  --blue-dark: #185FA5;
+  --green: #1D9E75;
+  --green-light: #E1F5EE;
+  --gray-bg: #f7f7f5;
+  --gray-border: rgba(0,0,0,0.10);
+  --gray-border-strong: rgba(0,0,0,0.18);
+  --text-primary: #1a1a18;
+  --text-secondary: #6b6b67;
+  --text-hint: #aaa;
+  --card-bg: #ffffff;
+  --surface: #f2f1ee;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --gray-bg: #1a1a18;
+    --gray-border: rgba(255,255,255,0.10);
+    --gray-border-strong: rgba(255,255,255,0.18);
+    --text-primary: #f0ede8;
+    --text-secondary: #9a9893;
+    --text-hint: #666;
+    --card-bg: #242422;
+    --surface: #2c2c2a;
+    --blue-light: #0c447c;
+  }
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--gray-bg);
+  color: var(--text-primary);
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+/* ===== Layout ===== */
+.page-wrapper {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem 1rem 4rem;
+}
+
+/* ===== Header ===== */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.villa-logo {
+  font-size: 36px;
+  line-height: 1;
+}
+
+.title {
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 1px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ===== View toggle ===== */
+.view-toggle {
+  display: flex;
+  gap: 4px;
+  background: var(--surface);
+  padding: 3px;
+  border-radius: var(--radius-md);
+}
+
+.vtbtn {
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.vtbtn.active {
+  background: var(--card-bg);
+  color: var(--text-primary);
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* ===== Year nav ===== */
+.nav-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nav-btn {
+  background: var(--card-bg);
+  border: 0.5px solid var(--gray-border);
+  border-radius: var(--radius-md);
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 18px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  font-family: inherit;
+}
+
+.nav-btn:hover { background: var(--surface); }
+
+.year-label {
+  font-size: 16px;
+  font-weight: 600;
+  min-width: 52px;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+/* ===== Stats ===== */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  background: var(--card-bg);
+  border: 0.5px solid var(--gray-border);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  transition: box-shadow 0.15s;
+}
+
+.stat-card:hover {
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+}
+
+.stat-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 5px;
+}
+
+.stat-value {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+}
+
+/* ===== Legend ===== */
+.legend {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.legend-dot.tenant  { background: var(--blue); }
+.legend-dot.owner   { background: var(--green); }
+.legend-dot.free    { background: var(--surface); border: 0.5px solid var(--gray-border-strong); }
+.legend-dot.today-dot { background: transparent; border: 2px solid var(--blue); border-radius: 3px; }
+
+/* ===== Calendar grid ===== */
+.months-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.month-card {
+  background: var(--card-bg);
+  border: 0.5px solid var(--gray-border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  transition: box-shadow 0.15s;
+}
+
+.month-card:hover {
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+}
+
+.month-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+  text-transform: capitalize;
+  letter-spacing: 0.2px;
+}
+
+.days-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 3px;
+}
+
+.day-name {
+  font-size: 9px;
+  color: var(--text-hint);
+  text-align: center;
+  padding: 2px 0;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.day-cell {
+  height: 28px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  cursor: default;
+  position: relative;
+  transition: opacity 0.12s;
+  user-select: none;
+}
+
+.day-cell.has-booking { cursor: pointer; }
+.day-cell.has-booking:hover { opacity: 0.75; }
+
+.day-num {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1;
+}
+
+.day-cell.day-free   { background: var(--surface); }
+.day-cell.day-tenant { background: var(--blue); }
+.day-cell.day-owner  { background: var(--green); }
+.day-cell.day-tenant .day-num,
+.day-cell.day-owner  .day-num { color: #fff; font-weight: 600; }
+
+.day-cell.day-today {
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+/* ===== Tooltip ===== */
+.tooltip {
+  position: fixed;
+  background: var(--card-bg);
+  border: 0.5px solid var(--gray-border-strong);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 9999;
+  max-width: 230px;
+  display: none;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+.tooltip-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  text-transform: capitalize;
+}
+
+.tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--text-secondary);
+  margin-bottom: 3px;
+  font-size: 12px;
+}
+
+.tooltip-val {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.tooltip-badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  margin-top: 6px;
+}
+
+.tooltip-badge.tenant { background: var(--blue-light); color: var(--blue-dark); }
+.tooltip-badge.owner  { background: var(--green-light); color: var(--green); }
+
+/* ===== List view ===== */
+.list-view { display: none; }
+.list-view.show { display: block; }
+.cal-view.hide { display: none; }
+
+.list-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin: 1.5rem 0 0.75rem;
+  padding-left: 2px;
+}
+
+.booking-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border: 0.5px solid var(--gray-border);
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
+  background: var(--card-bg);
+  transition: box-shadow 0.15s;
+}
+
+.booking-row:hover {
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+}
+
+.booking-color-bar {
+  width: 4px;
+  height: 40px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.booking-info { flex: 1; min-width: 0; }
+
+.booking-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: capitalize;
+}
+
+.booking-dates {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.booking-meta { text-align: right; flex-shrink: 0; }
+
+.booking-price {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.booking-nat {
+  display: inline-block;
+  font-size: 10px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  padding: 2px 8px;
+  border-radius: 20px;
+  margin-left: 6px;
+  vertical-align: middle;
+  font-weight: 400;
+}
+
+.empty-msg {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 3rem 0;
+  font-size: 14px;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 600px) {
+  .page-wrapper { padding: 1rem 0.75rem 3rem; }
+  .title { font-size: 20px; }
+  .months-grid { grid-template-columns: 1fr; }
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .booking-row { gap: 10px; padding: 10px 12px; }
+  .villa-logo { font-size: 28px; }
+  .header { gap: 10px; }
+}
+
+/* ===== Sync button ===== */
+.sync-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--card-bg);
+  border: 0.5px solid var(--gray-border);
+  border-radius: var(--radius-md);
+  padding: 5px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  height: 32px;
+  transition: background 0.15s, opacity 0.15s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.sync-btn:hover:not(:disabled) { background: var(--surface); }
+.sync-btn:disabled { cursor: not-allowed; }
+
+.sync-btn svg {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ===== Sync status bar ===== */
+.sync-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  margin-bottom: 1rem;
+  border: 0.5px solid transparent;
+}
+
+.sync-success {
+  background: #eaf3de;
+  color: #3B6D11;
+  border-color: #C0DD97;
+}
+
+.sync-error {
+  background: #FCEBEB;
+  color: #A32D2D;
+  border-color: #F7C1C1;
+}
+
+.sync-loading {
+  background: var(--blue-light);
+  color: var(--blue-dark);
+  border-color: #B5D4F4;
+}
+
+@media (prefers-color-scheme: dark) {
+  .sync-success { background: #173404; color: #C0DD97; border-color: #3B6D11; }
+  .sync-error   { background: #501313; color: #F7C1C1; border-color: #A32D2D; }
+  .sync-loading { background: #042C53; color: #B5D4F4; border-color: #185FA5; }
+}
+
+/* ===== Check-in / Check-out badges ===== */
+
+/* Toutes les cellules réservées utilisent flex pour aligner les badges */
+.day-checkin,
+.day-checkout,
+.day-both,
+.day-middle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+/* Badge ▶ arrivée */
+.ci-badge {
+  font-size: 7px;
+  color: rgba(255,255,255,0.92);
+  line-height: 1;
+  flex-shrink: 0;
+  margin-left: 1px;
+}
+
+/* Badge ◀ départ */
+.co-badge {
+  font-size: 7px;
+  color: rgba(255,255,255,0.92);
+  line-height: 1;
+  flex-shrink: 0;
+  margin-right: 1px;
+}
+
+/* Jour check-in : fond transparent → couleur */
+.day-checkin {
+  border-radius: 0 4px 4px 0;
+}
+
+/* Jour checkout : couleur → transparent */
+.day-checkout {
+  border-radius: 4px 0 0 4px;
+}
+
+/* Jour back-to-back (départ + arrivée) : pas d'arrondi */
+.day-both {
+  border-radius: 2px;
+}
+
+/* Jour intermédiaire : pas d'arrondi sur les côtés */
+.day-middle {
+  border-radius: 0;
+}
+
+/* Légère mise en valeur au survol des jours spéciaux */
+.day-checkin:hover,
+.day-checkout:hover,
+.day-both:hover {
+  filter: brightness(1.1);
+}
+
+/* Mise à jour de la légende pour inclure checkin/checkout */
+
+.legend-icon {
+  font-size: 10px;
+  color: var(--text-secondary);
+  background: var(--surface);
+  border: 0.5px solid var(--gray-border-strong);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-weight: 600;
+}
