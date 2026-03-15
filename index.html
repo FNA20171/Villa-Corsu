@@ -257,6 +257,18 @@ html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--b
 @keyframes slideInL{from{transform:translateX(60px);opacity:0}to{transform:translateX(0);opacity:1}}
 @keyframes slideInR{from{transform:translateX(-60px);opacity:0}to{transform:translateX(0);opacity:1}}
 
+
+/* ── Edit sheet ── */
+.edit-field{margin-bottom:12px;}
+.edit-field label{font-size:11px;color:var(--text3);display:block;margin-bottom:4px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;}
+.edit-field input{width:100%;background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:15px;font-family:var(--font);color:var(--text);outline:none;transition:border .15s,box-shadow .15s;}
+.edit-field input:focus{border-color:var(--airbnb);box-shadow:0 0 0 3px rgba(255,56,92,.12);}
+.gh-status{font-size:12px;font-weight:500;padding:6px 10px;border-radius:var(--radius-sm);margin-top:6px;display:none;}
+.gh-status.show{display:block;}
+.gh-status.ok{background:var(--green-pale);color:var(--green);}
+.gh-status.err{background:var(--airbnb-pale);color:var(--airbnb);}
+.gh-status.loading{background:var(--blue-pale);color:var(--blue);}
+.enrich-badge{font-size:10px;background:var(--blue-pale);color:var(--blue);border-radius:10px;padding:2px 7px;margin-left:6px;font-weight:600;vertical-align:middle;}
 </style>
 </head>
 <body>
@@ -373,6 +385,30 @@ html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--b
         <div class="status-msg" id="notif-status"></div>
       </div>
 
+      <div class="section-title">Synchronisation cloud</div>
+      <div class="settings-card">
+        <h3>&#9729; Sauvegarde GitHub</h3>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:10px;">Stockez vos enrichissements sur GitHub pour y accéder depuis n'importe quel appareil.</p>
+        <div class="input-group">
+          <label>Token GitHub (Personal Access Token)</label>
+          <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxx"/>
+        </div>
+        <div class="input-group">
+          <label>Repo (utilisateur/nom-repo)</label>
+          <input type="text" id="gh-repo" placeholder="monpseudo/airbnb-data"/>
+        </div>
+        <div class="input-group">
+          <label>Nom du fichier JSON</label>
+          <input type="text" id="gh-file" placeholder="enrichments.json" value="enrichments.json"/>
+        </div>
+        <button class="pwa-btn btn-primary" onclick="ghSave()">&#9650; Sauvegarder sur GitHub</button>
+        <button class="pwa-btn btn-secondary" onclick="ghLoad()">&#9660; Charger depuis GitHub</button>
+        <div class="gh-status" id="gh-status"></div>
+        <div style="margin-top:8px;font-size:11px;color:var(--text3);">
+          Créez un token sur github.com &#8594; Settings &#8594; Developer settings &#8594; Personal access tokens &#8594; Tokens (classic) avec le scope <b>repo</b>.
+        </div>
+      </div>
+
       <div class="section-title">Données</div>
       <div class="settings-card">
         <h3>💾 Sauvegarde locale</h3>
@@ -428,6 +464,25 @@ html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--b
       <span>Réglages</span>
     </button>
   </div>
+
+<!-- Edit booking sheet -->
+<div class="sheet-overlay" id="edit-overlay" onclick="closeEditSheet()"></div>
+<div class="sheet" id="edit-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-content">
+    <div class="sheet-title">Modifier la réservation</div>
+    <div class="edit-field"><label>Nom du voyageur</label><input type="text" id="e-guest" placeholder="Sophie Martin"/></div>
+    <div class="edit-field"><label>Origine</label><input type="text" id="e-origin" placeholder="Paris, France"/></div>
+    <div class="edit-field"><label>Revenus (€)</label><input type="number" id="e-revenue" placeholder="420"/></div>
+    <div class="edit-field"><label>Nombre de voyageurs</label><input type="number" id="e-guests" min="1" max="20"/></div>
+    <div class="edit-field"><label>Téléphone</label><input type="tel" id="e-phone" placeholder="+33 6 ..."/></div>
+    <div class="edit-field"><label>Note</label><input type="text" id="e-note" placeholder="Arrivée tardive..."/></div>
+    <div style="display:flex;gap:10px;margin-top:4px;">
+      <button class="action-btn btn-close" onclick="closeEditSheet()">Annuler</button>
+      <button class="action-btn" style="background:linear-gradient(135deg,#FF385C,#ff6b35);color:#fff;" onclick="saveEdit()">Enregistrer</button>
+    </div>
+  </div>
+</div>
 
 </div><!-- /app -->
 
@@ -579,7 +634,7 @@ function syncIcal() {
       function(text) {
         var parsed = parseIcal(text);
         bookings = parsed; icalUrl = raw;
-        save(); refresh();
+        save(); applyEnrichments(); refresh();
         showStatus('sync-status', parsed.length+' reservation(s) importee(s)', 'ok');
       },
       function(e) { tryNext(); }
@@ -599,7 +654,7 @@ function parseFromPaste() {
 }
 function parseIcal(text) {
   var events = [];
-  var BLOCKED_RE = /not available|airbnb|indisponible|blocked|unavailable|preparation|m\u00e9nage|cleaning/i;
+  var BLOCKED_RE = /not available|airbnb|indisponible|blocked|unavailable|preparation|ménage|cleaning/i;
   // Handle multi-line folded values (iCal lines folded with CRLF + whitespace)
   var unfolded = text.replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '');
   var blocks = unfolded.split('BEGIN:VEVENT');
@@ -1257,6 +1312,7 @@ function openDetail(id) {
     ${b.note ? '<div class="note-box">'+b.note+'</div>' : ''}
     <div class="action-btns">
       <button class="action-btn btn-close" onclick="closeSheet()">Fermer</button>
+      <button class="action-btn" style="background:var(--blue-pale);color:var(--blue);" onclick="openEditSheet('${b.id}')">Modifier</button>
       <button class="action-btn btn-delete" onclick="deleteBooking('${b.id}')">Supprimer</button>
     </div>`;
   document.getElementById('sheet-overlay').classList.add('open');
@@ -1559,17 +1615,182 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(()=>{});
 }
 
+// ── Enrichments ──────────────────────────────────────────────────────────
+// enrichments = {bookingId: {guest, origin, revenue, guests, phone, note}}
+var enrichments = {};
+var editingId = null;
+
+function loadEnrichments() {
+  try {
+    var stored = localStorage.getItem('airbnb_enrichments');
+    if (stored) enrichments = JSON.parse(stored);
+  } catch(e) {}
+}
+
+function saveEnrichments() {
+  try { localStorage.setItem('airbnb_enrichments', JSON.stringify(enrichments)); } catch(e) {}
+}
+
+function applyEnrichments() {
+  bookings = bookings.map(function(b) {
+    var e = enrichments[b.id];
+    if (!e) return b;
+    return Object.assign({}, b, {
+      guest:   e.guest   || b.guest,
+      origin:  e.origin  !== undefined ? e.origin  : b.origin,
+      revenue: e.revenue !== undefined ? e.revenue : b.revenue,
+      guests:  e.guests  !== undefined ? e.guests  : b.guests,
+      phone:   e.phone   !== undefined ? e.phone   : b.phone,
+      note:    e.note    !== undefined ? e.note    : b.note,
+      enriched: true
+    });
+  });
+}
+
+function openEditSheet(id) {
+  var b = bookings.find(function(x){return x.id===id;});
+  if (!b) return;
+  editingId = id;
+  closeSheet();
+  document.getElementById('e-guest').value   = b.guest   || '';
+  document.getElementById('e-origin').value  = b.origin  || '';
+  document.getElementById('e-revenue').value = b.revenue || '';
+  document.getElementById('e-guests').value  = b.guests  || 2;
+  document.getElementById('e-phone').value   = b.phone   || '';
+  document.getElementById('e-note').value    = b.note    || '';
+  document.getElementById('edit-overlay').classList.add('open');
+  document.getElementById('edit-sheet').classList.add('open');
+}
+
+function closeEditSheet() {
+  document.getElementById('edit-overlay').classList.remove('open');
+  document.getElementById('edit-sheet').classList.remove('open');
+  editingId = null;
+}
+
+function saveEdit() {
+  if (!editingId) return;
+  enrichments[editingId] = {
+    guest:   document.getElementById('e-guest').value.trim(),
+    origin:  document.getElementById('e-origin').value.trim(),
+    revenue: parseInt(document.getElementById('e-revenue').value) || 0,
+    guests:  parseInt(document.getElementById('e-guests').value)  || 2,
+    phone:   document.getElementById('e-phone').value.trim(),
+    note:    document.getElementById('e-note').value.trim()
+  };
+  saveEnrichments();
+  applyEnrichments();
+  closeEditSheet();
+  refresh();
+}
+
+// ── GitHub sync ───────────────────────────────────────────────────────────
+function ghGetConfig() {
+  return {
+    token: document.getElementById('gh-token').value.trim(),
+    repo:  document.getElementById('gh-repo').value.trim(),
+    file:  document.getElementById('gh-file').value.trim() || 'enrichments.json'
+  };
+}
+
+function ghShowStatus(msg, type) {
+  var el = document.getElementById('gh-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'gh-status show ' + type;
+  if (type !== 'loading') setTimeout(function(){el.classList.remove('show');}, 5000);
+}
+
+function ghSave() {
+  var cfg = ghGetConfig();
+  if (!cfg.token || !cfg.repo) {
+    ghShowStatus('Token et repo requis', 'err'); return;
+  }
+  ghShowStatus('Sauvegarde en cours...', 'loading');
+  var content = JSON.stringify(enrichments, null, 2);
+  var b64 = btoa(unescape(encodeURIComponent(content)));
+  var apiUrl = 'https://api.github.com/repos/' + cfg.repo + '/contents/' + cfg.file;
+
+  // Get current SHA first (needed for update)
+  fetch(apiUrl, {
+    headers: {'Authorization': 'token ' + cfg.token, 'Accept': 'application/vnd.github.v3+json'}
+  })
+  .then(function(r){ return r.ok ? r.json() : null; })
+  .then(function(existing) {
+    var body = {message: 'Update enrichments', content: b64};
+    if (existing && existing.sha) body.sha = existing.sha;
+    return fetch(apiUrl, {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'token ' + cfg.token,
+        'Content-Type': 'application/json',
+        'Accept': 'application/vnd.github.v3+json'
+      },
+      body: JSON.stringify(body)
+    });
+  })
+  .then(function(r) {
+    if (r && r.ok) {
+      ghShowStatus('Sauvegardé sur GitHub !', 'ok');
+      localStorage.setItem('gh_token', cfg.token);
+      localStorage.setItem('gh_repo', cfg.repo);
+      localStorage.setItem('gh_file', cfg.file);
+    } else {
+      ghShowStatus('Erreur — vérifiez token et repo', 'err');
+    }
+  })
+  .catch(function(e){ ghShowStatus('Erreur réseau : ' + e.message, 'err'); });
+}
+
+function ghLoad() {
+  var cfg = ghGetConfig();
+  if (!cfg.token || !cfg.repo) {
+    ghShowStatus('Token et repo requis', 'err'); return;
+  }
+  ghShowStatus('Chargement depuis GitHub...', 'loading');
+  var apiUrl = 'https://api.github.com/repos/' + cfg.repo + '/contents/' + cfg.file;
+  fetch(apiUrl, {
+    headers: {'Authorization': 'token ' + cfg.token, 'Accept': 'application/vnd.github.v3+json'}
+  })
+  .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+  .then(function(data) {
+    var decoded = decodeURIComponent(escape(atob(data.content.replace(/
+/g,''))));
+    enrichments = JSON.parse(decoded);
+    saveEnrichments();
+    applyEnrichments();
+    refresh();
+    ghShowStatus(Object.keys(enrichments).length + ' enrichissement(s) chargé(s)', 'ok');
+    localStorage.setItem('gh_token', cfg.token);
+    localStorage.setItem('gh_repo', cfg.repo);
+    localStorage.setItem('gh_file', cfg.file);
+  })
+  .catch(function(e){ ghShowStatus('Erreur : ' + e.message, 'err'); });
+}
+
+function ghRestoreConfig() {
+  var t = localStorage.getItem('gh_token');
+  var r = localStorage.getItem('gh_repo');
+  var f = localStorage.getItem('gh_file');
+  if (t && document.getElementById('gh-token')) document.getElementById('gh-token').value = t;
+  if (r && document.getElementById('gh-repo'))  document.getElementById('gh-repo').value  = r;
+  if (f && document.getElementById('gh-file'))  document.getElementById('gh-file').value  = f;
+}
+
 // -- Init
 var DEFAULT_ICAL = 'https://www.airbnb.fr/calendar/ical/11135616.ics?t=98ad8ce7c2f748e285be23d07d007d85';
 try {
   loadStored();
+  loadEnrichments();
   if (!bookings.length) {
     document.getElementById('ical-input').value = DEFAULT_ICAL;
     syncIcal();
   } else {
+    applyEnrichments();
     refresh();
   }
   initSwipe();
+  ghRestoreConfig();
   checkAndNotify();
 } catch(e) {
   console.error('Init error:', e);
