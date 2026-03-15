@@ -378,7 +378,9 @@ html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--b
         <h3>💾 Sauvegarde locale</h3>
         <p style="font-size:13px;color:var(--text3);margin-bottom:12px;">Vos réservations sont sauvegardées sur cet appareil.</p>
         <button class="pwa-btn btn-secondary" onclick="exportData()">Exporter (JSON)</button>
+        <button class="pwa-btn" style="background:var(--purple-pale);color:var(--purple);" onclick="showGuestNames()">Vérifier noms extraits</button>
         <button class="pwa-btn" style="background:#fde8ea;color:#c0203e;" onclick="clearData()">Effacer toutes les données</button>
+        <div id="names-debug" style="display:none;margin-top:8px;background:var(--bg3);border-radius:var(--radius-sm);padding:10px;font-size:12px;color:var(--text2);max-height:180px;overflow-y:auto;"></div>
       </div>
 
       <div style="text-align:center;padding:20px;font-size:11px;color:var(--text3);">
@@ -596,28 +598,65 @@ function parseFromPaste() {
   showStatus('sync-status', parsed.length+' reservation(s) importee(s) depuis le texte', 'ok');
 }
 function parseIcal(text) {
-  const events = [];
-  const BLOCKED_RE = /not available|airbnb|indisponible|blocked|unavailable|preparation|ménage|cleaning/i;
-  const blocks  = text.split('BEGIN:VEVENT');
-  blocks.slice(1).forEach((block, i) => {
-    const get = k => { const m = block.match(new RegExp(k+'[^:]*:([^\\r\\n]+)')); return m ? m[1].trim() : ''; };
-    const ds = get('DTSTART'), de = get('DTEND');
+  var events = [];
+  var BLOCKED_RE = /not available|airbnb|indisponible|blocked|unavailable|preparation|m\u00e9nage|cleaning/i;
+  // Handle multi-line folded values (iCal lines folded with CRLF + whitespace)
+  var unfolded = text.replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '');
+  var blocks = unfolded.split('BEGIN:VEVENT');
+  blocks.slice(1).forEach(function(block, i) {
+    var get = function(k) {
+      var m = block.match(new RegExp(k + '[^:]*:([^\r\n]+)'));
+      return m ? m[1].trim() : '';
+    };
+    var ds = get('DTSTART'), de = get('DTEND');
     if (!ds || !de) return;
-    const fmt = s => s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8);
-    const cin = fmt(ds), cout = fmt(de);
-    const nights = Math.round((new Date(cout)-new Date(cin))/86400000);
-    const summary = get('SUMMARY');
-    const desc    = get('DESCRIPTION');
+    var fmt = function(s) { return s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8); };
+    var cin = fmt(ds), cout = fmt(de);
+    var nights = Math.round((new Date(cout)-new Date(cin))/86400000);
+    var summary = get('SUMMARY');
+    var desc    = get('DESCRIPTION');
+    var raw = summary + ' ' + desc;
+
     if (BLOCKED_RE.test(summary) || BLOCKED_RE.test(desc)) {
       events.push({id:'ic'+i, guest:'', origin:'', checkin:cin, checkout:cout,
-        nights, revenue:0, status:'blocked', guests:0, phone:'', note:summary});
+        nights:nights, revenue:0, status:'blocked', guests:0, phone:'', note:summary});
       return;
     }
-    const gm = (desc+summary).match(/([A-Z][a-zÀ-ÿ]+ [A-Z][a-zÀ-ÿ]+)/);
-    const guestName = gm ? gm[1] : (summary || 'Voyageur');
-    events.push({id:'ic'+i, guest: guestName,
-      origin:'', checkin:cin, checkout:cout, nights, revenue:nights*140,
-      status:'confirmed', guests:2, phone:'', note:desc.slice(0,80)});
+
+    // Extract guest name — try multiple AirBnB patterns in order of reliability
+    var guestName = '';
+
+    // Pattern 1: "Reservation de Prenom" or "Reserved by Prenom" or "Reservee par Prenom"
+    var m1 = raw.match(/(?:r[ée]serv(?:ation|[ée][e]?)?\s+(?:de|par|by|for)\s+)([A-ZÀ-ÿ][a-zÀ-ÿà-ÿ]+(?:\s+[A-ZÀ-ÿ][a-zÀ-ÿà-ÿ]+)?)/i);
+    if (m1) guestName = m1[1];
+
+    // Pattern 2: Full name "Firstname Lastname" (both capitalized)
+    if (!guestName) {
+      var m2 = raw.match(/([A-ZÀ-ÿ][a-zÀ-ÿà-ÿ]{1,15}\s+[A-ZÀ-ÿ][a-zÀ-ÿà-ÿ]{1,15})/);
+      if (m2) guestName = m2[1];
+    }
+
+    // Pattern 3: SUMMARY alone if it's a short name (not a sentence)
+    if (!guestName && summary && summary.length < 40 && !/\s{2,}/.test(summary)) {
+      // Capitalize properly if all caps
+      var s = summary.trim();
+      if (s === s.toUpperCase()) {
+        s = s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+      }
+      guestName = s;
+    }
+
+    // Pattern 4: First capitalized word from SUMMARY as first name
+    if (!guestName) {
+      var m4 = raw.match(/([A-ZÀ-ÿ][a-zÀ-ÿà-ÿ]{2,})/);
+      if (m4) guestName = m4[1];
+    }
+
+    if (!guestName) guestName = 'Voyageur';
+
+    events.push({id:'ic'+i, guest:guestName,
+      origin:'', checkin:cin, checkout:cout, nights:nights, revenue:nights*140,
+      status:'confirmed', guests:2, phone:'', note:desc.slice(0,120)});
   });
   return events;
 }
@@ -663,111 +702,117 @@ function renderMetrics() {
 
 // ── Calendar ──────────────────────────────────────────────────────────────
 function renderCalendar() {
-  document.getElementById('cal-month-lbl').textContent = `${MONTHS[navMonth]} ${navYear}`;
-  document.getElementById('cal-day-headers').innerHTML = DAYS.map(d =>
-    `<div class="cal-day-lbl">${d}</div>`).join('');
+  var pad2 = function(n){return String(n).padStart(2,'0');};
+  document.getElementById('cal-month-lbl').textContent = MONTHS[navMonth]+' '+navYear;
+  document.getElementById('cal-day-headers').innerHTML = DAYS.map(function(d){
+    return '<div class="cal-day-lbl">'+d+'</div>';
+  }).join('');
 
-  const bookedMap = {}, blockedMap = {}, checkoutMap = {};
+  // Build lookup maps
+  var bookedMap={}, blockedMap={}, checkoutMap={};
   bookings.forEach(function(b) {
-    if (b.status === 'blocked') {
-      var bd = new Date(b.checkin), bend = new Date(b.checkout);
-      while (bd < bend) { blockedMap[fmtDate(bd)] = b; bd.setDate(bd.getDate()+1); }
+    if (b.status==='blocked') {
+      var bd=new Date(b.checkin),bend=new Date(b.checkout);
+      while(bd<bend){blockedMap[fmtDate(bd)]=b;bd.setDate(bd.getDate()+1);}
       return;
     }
-    // map checkout day separately
-    checkoutMap[b.checkout] = b;
-    var bd2 = new Date(b.checkin), bend2 = new Date(b.checkout);
-    while (bd2 < bend2) { bookedMap[fmtDate(bd2)] = b; bd2.setDate(bd2.getDate()+1); }
+    checkoutMap[b.checkout]=b;
+    var bd2=new Date(b.checkin),bend2=new Date(b.checkout);
+    while(bd2<bend2){bookedMap[fmtDate(bd2)]=b;bd2.setDate(bd2.getDate()+1);}
   });
 
-  // Detect rotation days this month (checkout + checkin same day)
-  const pad2 = function(n){return String(n).padStart(2,'0');};
-  const mStr2 = navYear+'-'+pad2(navMonth+1);
-  const rotations = [];
-  Object.keys(checkoutMap).forEach(function(ds) {
-    if (ds.slice(0,7) === mStr2 && bookedMap[ds] && checkoutMap[ds].id !== bookedMap[ds].id) {
-      rotations.push({
-        date: ds,
-        out: checkoutMap[ds].guest,
-        inn: bookedMap[ds].guest
-      });
+  // Detect rotation days this month
+  var mStr2=navYear+'-'+pad2(navMonth+1);
+  var rotations=[];
+  Object.keys(checkoutMap).forEach(function(ds){
+    if(ds.slice(0,7)===mStr2 && bookedMap[ds] && checkoutMap[ds].id!==bookedMap[ds].id){
+      rotations.push({date:ds,out:checkoutMap[ds].guest,inn:bookedMap[ds].guest});
     }
   });
 
   // Show/hide rotation alert
-  const alertEl = document.getElementById('rotation-alert');
-  const listEl  = document.getElementById('rotation-list');
-  if (rotations.length && alertEl) {
-    alertEl.classList.add('show');
-    listEl.innerHTML = rotations.map(function(r) {
-      var dFmt = new Date(r.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-      return '<div class="rotation-alert-item">📅 <b>'+dFmt+'</b> — Départ : '+r.out+' / Arrivée : '+r.inn+'</div>';
-    }).join('');
-  } else if (alertEl) {
-    alertEl.classList.remove('show');
-  }
-
-  const first = new Date(navYear, navMonth, 1);
-  const daysIn = new Date(navYear, navMonth+1, 0).getDate();
-  const startDow = (first.getDay()+6)%7;
-  const todayStr = fmtDate(today);
-  let html = '';
-
-  for (let i=0; i<startDow; i++) html += '<div class="cal-cell other"></div>';
-  for (let d=1; d<=daysIn; d++) {
-    const ds = navYear+'-'+pad2(navMonth+1)+'-'+pad2(d);
-    const b   = bookedMap[ds];
-    const bl  = blockedMap[ds];
-    const co  = checkoutMap[ds]; // someone checking OUT this day
-    const isPast = ds < todayStr;
-    let cls = 'cal-cell';
-    if (isPast && !b && !bl && !co) cls += ' past';
-    if (ds === todayStr) cls += ' today';
-    let inner = '', tap = '';
-
-    // Rotation: someone checks out AND someone checks in same day
-    const isRotation = co && b && co.id !== b.id;
-    // Pure checkout: someone checks out, nobody checks in
-    const isPureCheckout = co && (!b || co.id === b.id) && ds === co.checkout;
-
-    if (isRotation) {
-      cls += ' tappable rotation';
-      tap = 'onclick="openDetail(''+b.id+'')"';
-      var outName = co.guest ? co.guest.split(' ')[0] : '';
-      var inName  = b.guest  ? b.guest.split(' ')[0]  : '';
-      inner = '<div class="cal-cell-wrap">'
-        + '<div class="cal-cell-num">'+d+'</div>'
-        + '<div class="cal-cell-name">'+outName+'&#8599;'+inName+'</div>'
-        + '</div>';
-    } else if (b) {
-      cls += ' tappable';
-      if (ds === b.checkin) {
-        cls += ' checkin';
-        var firstName = b.guest ? b.guest.split(' ')[0] : '';
-        var nameHtml = firstName ? '<div class="cal-cell-name">'+firstName+'</div>' : '';
-        inner = '<div class="cal-cell-wrap"><div class="cal-cell-num">'+d+'</div>'+nameHtml+'</div>';
-      } else {
-        cls += ' staying';
-        inner = '<div class="cal-cell-wrap"><div class="cal-cell-num">'+d+'</div></div>';
-      }
-      tap = 'onclick="openDetail(''+b.id+'')"';
-    } else if (isPureCheckout) {
-      cls += ' tappable checkout';
-      tap = 'onclick="openDetail(''+co.id+'')"';
-      var outFirst = co.guest ? co.guest.split(' ')[0] : '';
-      inner = '<div class="cal-cell-wrap">'
-        + '<div class="cal-cell-num">'+d+'</div>'
-        + (outFirst ? '<div class="cal-cell-name">'+outFirst+'</div>' : '')
-        + '</div>';
-    } else if (bl) {
-      cls += ' blocked';
-      inner = '<div class="cal-cell-wrap"><div class="cal-cell-num">'+d+'</div></div>';
+  var alertEl=document.getElementById('rotation-alert');
+  var listEl=document.getElementById('rotation-list');
+  if(alertEl){
+    if(rotations.length){
+      alertEl.classList.add('show');
+      listEl.innerHTML=rotations.map(function(r){
+        var dFmt=new Date(r.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
+        return '<div class="rotation-alert-item">&#128197; <b>'+dFmt+'</b> &mdash; D&eacute;part&#160;: '+r.out+' / Arriv&eacute;e&#160;: '+r.inn+'</div>';
+      }).join('');
     } else {
-      inner = String(d);
+      alertEl.classList.remove('show');
     }
-    html += '<div class="'+cls+'" '+tap+'>'+inner+'</div>';
   }
-  document.getElementById('cal-body').innerHTML = html;
+
+  // Build calendar grid
+  var first=new Date(navYear,navMonth,1);
+  var daysIn=new Date(navYear,navMonth+1,0).getDate();
+  var startDow=(first.getDay()+6)%7;
+  var todayStr=fmtDate(today);
+  var html='';
+
+  for(var i=0;i<startDow;i++) html+='<div class="cal-cell other"></div>';
+
+  for(var d=1;d<=daysIn;d++){
+    var ds=navYear+'-'+pad2(navMonth+1)+'-'+pad2(d);
+    var b=bookedMap[ds];
+    var bl=blockedMap[ds];
+    var co=checkoutMap[ds];
+    var isPast=ds<todayStr;
+    var cls='cal-cell';
+    if(isPast&&!b&&!bl&&!co) cls+=' past';
+    if(ds===todayStr) cls+=' today';
+    var inner='';
+    var dataId='';
+
+    var isRotation=co&&b&&co.id!==b.id;
+    var isPureCheckout=co&&ds===co.checkout&&(!b||(co.id===b.id));
+
+    if(isRotation){
+      cls+=' tappable rotation';
+      dataId=b.id;
+      var outName=co.guest?co.guest.split(' ')[0]:'';
+      var inName=b.guest?b.guest.split(' ')[0]:'';
+      inner='<div class="cal-cell-wrap"><div class="cal-cell-num">'+d+'</div>'
+           +'<div class="cal-cell-name">'+outName+'&uarr;'+inName+'</div></div>';
+    } else if(b){
+      cls+=' tappable';
+      dataId=b.id;
+      if(ds===b.checkin){
+        cls+=' checkin';
+        var fn=b.guest?b.guest.split(' ')[0]:'';
+        var nh=fn?'<div class="cal-cell-name">'+fn+'</div>':'';
+        inner='<div class="cal-cell-wrap"><div class="cal-cell-num">'+d+'</div>'+nh+'</div>';
+      } else {
+        cls+=' staying';
+        inner='<div class="cal-cell-wrap"><div class="cal-cell-num">'+d+'</div></div>';
+      }
+    } else if(isPureCheckout){
+      cls+=' tappable checkout';
+      dataId=co.id;
+      var cf=co.guest?co.guest.split(' ')[0]:'';
+      var ch2=cf?'<div class="cal-cell-name">'+cf+'</div>':'';
+      inner='<div class="cal-cell-wrap"><div class="cal-cell-num">'+d+'</div>'+ch2+'</div>';
+    } else if(bl){
+      cls+=' blocked';
+      inner='<div class="cal-cell-wrap"><div class="cal-cell-num">'+d+'</div></div>';
+    } else {
+      inner=String(d);
+    }
+
+    var dataAttr=dataId?(' data-id="'+dataId+'"'):'';
+    html+='<div class="'+cls+'"'+dataAttr+'>'+inner+'</div>';
+  }
+
+  var calBody=document.getElementById('cal-body');
+  calBody.innerHTML=html;
+
+  // Event delegation - single listener, no inline onclick
+  calBody.onclick=function(e){
+    var cell=e.target.closest('[data-id]');
+    if(cell) openDetail(cell.getAttribute('data-id'));
+  };
 }
 function calNav(delta) {
   navMonth += delta;
@@ -775,6 +820,8 @@ function calNav(delta) {
   if (navMonth < 0)  { navMonth=11; navYear--; }
   renderCalendar();
 }
+
+
 
 // ── Booking list ──────────────────────────────────────────────────────────
 function renderList() {
@@ -1315,6 +1362,22 @@ function checkAndNotify() {
 }
 
 // ── Data export / clear ───────────────────────────────────────────────────
+function showGuestNames() {
+  var el = document.getElementById('names-debug');
+  if (!el) return;
+  if (el.style.display !== 'none') { el.style.display='none'; return; }
+  var real = bookings.filter(function(b){return b.status!=='blocked';});
+  if (!real.length) { el.innerHTML='Aucune reservation'; el.style.display='block'; return; }
+  el.innerHTML = real.map(function(b){
+    var cin = new Date(b.checkin).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+    var cout = new Date(b.checkout).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+    return '<div style="padding:3px 0;border-bottom:1px solid var(--border)">'
+      +'<b>'+b.guest+'</b> &mdash; '+cin+' &rarr; '+cout
+      +(b.note?'<br><span style="color:var(--text3);font-size:11px;">'+b.note.slice(0,60)+'</span>':'')
+      +'</div>';
+  }).join('');
+  el.style.display='block';
+}
 function exportData() {
   const json = JSON.stringify({bookings, exportedAt: new Date().toISOString()}, null, 2);
   const blob = new Blob([json], {type:'application/json'});
