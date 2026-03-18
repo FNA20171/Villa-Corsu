@@ -9,7 +9,7 @@
  * ============================================================
  */
 
-const APPS_SCRIPT_URL = "COLLER_VOTRE_URL_ICI";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwgNFFJHgeJxjnGcafM9m4b_eOuQDSmKKN9XyiMs_eXv5Bc90fsfJ4oBB4GpuC_dlys/exec";
 // Exemple :
 // const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfy.../exec";
 

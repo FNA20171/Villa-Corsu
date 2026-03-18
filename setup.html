@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Villa Corsu — Configuration de la synchro</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f7f7f5;color:#1a1a18;line-height:1.6;padding:2rem 1rem 4rem}
+    .wrap{max-width:720px;margin:0 auto}
+    h1{font-size:22px;font-weight:600;margin-bottom:4px}
+    .sub{color:#6b6b67;font-size:14px;margin-bottom:2rem}
+    .step{background:#fff;border:0.5px solid rgba(0,0,0,0.10);border-radius:12px;padding:1.5rem;margin-bottom:1rem;position:relative}
+    .step-num{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#378ADD;color:#fff;font-size:13px;font-weight:600;margin-bottom:10px;flex-shrink:0}
+    .step-title{font-size:16px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+    .step-body{font-size:14px;color:#3a3a38;line-height:1.7}
+    .step-body p{margin-bottom:8px}
+    .step-body b{font-weight:600;color:#1a1a18}
+    code{background:#f0ede8;border:0.5px solid rgba(0,0,0,0.12);border-radius:4px;padding:2px 7px;font-family:monospace;font-size:13px;color:#185FA5;word-break:break-all}
+    pre{background:#1a1a18;color:#e8e8e8;border-radius:8px;padding:1rem;font-size:13px;overflow-x:auto;margin:10px 0;line-height:1.5}
+    pre .c{color:#6b9e6b}
+    pre .k{color:#cf9eff}
+    pre .s{color:#98d4a3}
+    .img-placeholder{background:#f0ede8;border:0.5px dashed rgba(0,0,0,0.20);border-radius:8px;padding:1rem;margin:10px 0;font-size:13px;color:#6b6b67;text-align:center}
+    .arrow{display:flex;align-items:center;gap:6px;background:#eaf3de;border:0.5px solid #C0DD97;border-radius:8px;padding:8px 12px;font-size:13px;color:#3B6D11;margin:8px 0}
+    .arrow::before{content:"→";font-weight:700}
+    .warn{background:#FAEEDA;border:0.5px solid #FAC775;border-radius:8px;padding:10px 14px;font-size:13px;color:#633806;margin:10px 0}
+    .warn::before{content:"⚠ "}
+    .done{background:#eaf3de;border:0.5px solid #C0DD97;border-radius:8px;padding:10px 14px;font-size:13px;color:#3B6D11;margin:10px 0}
+
+    /* Diagnostic tool */
+    .diag{background:#fff;border:0.5px solid rgba(0,0,0,0.10);border-radius:12px;padding:1.5rem;margin-top:2rem}
+    .diag-title{font-size:18px;font-weight:600;margin-bottom:4px}
+    .diag-sub{font-size:13px;color:#6b6b67;margin-bottom:1rem}
+    .input-row{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap}
+    .url-input{flex:1;min-width:200px;border:0.5px solid rgba(0,0,0,0.18);border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;background:#fff;color:#1a1a18}
+    .url-input:focus{border-color:#378ADD;box-shadow:0 0 0 3px rgba(55,138,221,0.15)}
+    .test-btn{background:#378ADD;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit}
+    .test-btn:hover{background:#185FA5}
+    .test-btn:disabled{opacity:0.5;cursor:not-allowed}
+    .result{border-radius:8px;padding:12px 14px;font-size:13px;display:none;margin-top:8px}
+    .result.ok{background:#eaf3de;border:0.5px solid #C0DD97;color:#3B6D11}
+    .result.err{background:#FCEBEB;border:0.5px solid #F7C1C1;color:#A32D2D}
+    .result pre{background:rgba(0,0,0,0.06);color:inherit;border-radius:6px;padding:8px;margin-top:8px;font-size:12px;white-space:pre-wrap;word-break:break-all}
+    .copy-btn{background:transparent;border:0.5px solid rgba(0,0,0,0.18);border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:inherit;margin-left:8px;color:#3a3a38}
+    .copy-btn:hover{background:#f0ede8}
+
+    @media(max-width:600px){
+      h1{font-size:18px}
+      .step{padding:1rem}
+      pre{font-size:11px}
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔧 Configuration de la synchro Google Sheets</h1>
+  <div class="sub">Guide pas-à-pas pour connecter Villa Corsu Calendar à votre Google Sheet</div>
+
+  <!-- ÉTAPE 1 -->
+  <div class="step">
+    <div class="step-title"><span class="step-num">1</span> Ouvrir le Google Sheet</div>
+    <div class="step-body">
+      <p>Ouvrez votre Google Sheet dans le navigateur :</p>
+      <div class="arrow"><a href="https://docs.google.com/spreadsheets/d/1Xvaq75grdyDXzmqrOL1fgOxjxaJHfoWXgvopg2Oh2vw" target="_blank" style="color:inherit;font-weight:600">Ouvrir le Google Sheet →</a></div>
+      <p>Vérifiez que vous êtes bien <b>connecté au compte Google</b> propriétaire de ce Sheet.</p>
+    </div>
+  </div>
+
+  <!-- ÉTAPE 2 -->
+  <div class="step">
+    <div class="step-title"><span class="step-num">2</span> Ouvrir Apps Script</div>
+    <div class="step-body">
+      <p>Dans le Sheet, cliquez dans la barre de menus :</p>
+      <div class="arrow"><b>Extensions</b> → <b>Apps Script</b></div>
+      <p>Une nouvelle fenêtre s'ouvre avec un éditeur de code.</p>
+      <div class="img-placeholder">📋 L'éditeur affiche par défaut :<br><code>function myFunction() { }</code></div>
+    </div>
+  </div>
+
+  <!-- ÉTAPE 3 -->
+  <div class="step">
+    <div class="step-title"><span class="step-num">3</span> Coller le script</div>
+    <div class="step-body">
+      <p>Dans l'éditeur :</p>
+      <div class="arrow">Sélectionnez tout (<code>Ctrl+A</code> ou <code>Cmd+A</code>) → supprimez → collez le code ci-dessous</div>
+      <pre id="script-code"><span class="c">// Villa Corsu — Web App Google Apps Script</span>
+<span class="k">const</span> SHEET_NAME = <span class="s">""</span>;
+
+<span class="k">function</span> doGet(e) {
+  <span class="k">try</span> {
+    <span class="k">const</span> ss    = SpreadsheetApp.getActiveSpreadsheet();
+    <span class="k">const</span> sheet = SHEET_NAME ? ss.getSheetByName(SHEET_NAME) : ss.getSheets()[<span class="s">0</span>];
+    <span class="k">if</span> (!sheet) <span class="k">throw new</span> Error(<span class="s">"Feuille introuvable"</span>);
+    <span class="k">const</span> rows   = sheet.getDataRange().getValues();
+    <span class="k">const</span> header = rows[<span class="s">0</span>].map(h => String(h).trim().toLowerCase());
+    <span class="k">const</span> iArr  = findCol(header, [<span class="s">"arrivée","arrivee","arr"</span>]);
+    <span class="k">const</span> iDep  = findCol(header, [<span class="s">"départ","depart","dep"</span>]);
+    <span class="k">const</span> iName = findCol(header, [<span class="s">"locataire","nom","name"</span>]);
+    <span class="k">const</span> iNat  = findCol(header, [<span class="s">"nationalité","nationalite","nat"</span>]);
+    <span class="k">const</span> iVis  = findCol(header, [<span class="s">"visiteurs","vis","personnes"</span>]);
+    <span class="k">const</span> iPrix = findCol(header, [<span class="s">"prix","price","montant"</span>]);
+    <span class="k">const</span> data = [];
+    <span class="k">for</span> (<span class="k">let</span> i = <span class="s">1</span>; i &lt; rows.length; i++) {
+      <span class="k">const</span> row   = rows[i];
+      <span class="k">const</span> arr   = formatDate(iArr  &gt;= <span class="s">0</span> ? row[iArr]  : <span class="s">""</span>);
+      <span class="k">const</span> dep   = formatDate(iDep  &gt;= <span class="s">0</span> ? row[iDep]  : <span class="s">""</span>);
+      <span class="k">const</span> name  = iName &gt;= <span class="s">0</span> ? String(row[iName] || <span class="s">""</span>).trim() : <span class="s">""</span>;
+      <span class="k">if</span> (!arr || !dep || !name) <span class="k">continue</span>;
+      <span class="k">const</span> nat  = iNat  &gt;= <span class="s">0</span> ? String(row[iNat]  || <span class="s">""</span>).trim() : <span class="s">""</span>;
+      <span class="k">const</span> vis  = iVis  &gt;= <span class="s">0</span> ? parseInt(row[iVis],  <span class="s">10</span>) || <span class="s">0</span>   : <span class="s">0</span>;
+      <span class="k">const</span> prix = iPrix &gt;= <span class="s">0</span> ? parseFloat(String(row[iPrix] || <span class="s">"0"</span>).replace(<span class="s">","</span>,<span class="s">"."</span>)) || <span class="s">0</span> : <span class="s">0</span>;
+      data.push({ arr, dep, name, nat, vis, prix });
+    }
+    <span class="k">return</span> jsonResponse({ ok: <span class="k">true</span>, count: data.length, data });
+  } <span class="k">catch</span> (err) {
+    <span class="k">return</span> jsonResponse({ ok: <span class="k">false</span>, error: err.message });
+  }
+}
+<span class="k">function</span> findCol(header, candidates) {
+  <span class="k">for</span> (<span class="k">const</span> c <span class="k">of</span> candidates) {
+    <span class="k">const</span> i = header.findIndex(h => h.includes(c));
+    <span class="k">if</span> (i &gt;= <span class="s">0</span>) <span class="k">return</span> i;
+  }
+  <span class="k">return</span> -<span class="s">1</span>;
+}
+<span class="k">function</span> formatDate(v) {
+  <span class="k">if</span> (!v) <span class="k">return null</span>;
+  <span class="k">if</span> (v <span class="k">instanceof</span> Date) <span class="k">return</span> pad(v.getDate())+<span class="s">"/"</span>+pad(v.getMonth()+<span class="s">1</span>)+<span class="s">"/"</span>+v.getFullYear();
+  <span class="k">if</span> (<span class="k">typeof</span> v===<span class="s">"string"</span> && /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(v.trim())) <span class="k">return</span> v.trim();
+  <span class="k">if</span> (<span class="k">typeof</span> v===<span class="s">"number"</span>) { <span class="k">const</span> d=<span class="k">new</span> Date(Math.round((v-<span class="s">25569</span>)*<span class="s">86400000</span>)); <span class="k">return</span> pad(d.getUTCDate())+<span class="s">"/"</span>+pad(d.getUTCMonth()+<span class="s">1</span>)+<span class="s">"/"</span>+d.getUTCFullYear(); }
+  <span class="k">const</span> d=<span class="k">new</span> Date(String(v)); <span class="k">return</span> isNaN(d)?<span class="k">null</span>:pad(d.getDate())+<span class="s">"/"</span>+pad(d.getMonth()+<span class="s">1</span>)+<span class="s">"/"</span>+d.getFullYear();
+}
+<span class="k">function</span> pad(n) { <span class="k">return</span> n&lt;<span class="s">10</span>?<span class="s">"0"</span>+n:String(n); }
+<span class="k">function</span> jsonResponse(obj) {
+  <span class="k">return</span> ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}</pre>
+      <button class="copy-btn" onclick="copyScript()">📋 Copier le script</button>
+      <p style="margin-top:10px">Puis cliquez sur 💾 <b>Enregistrer</b> (icône disquette ou <code>Ctrl+S</code>).</p>
+    </div>
+  </div>
+
+  <!-- ÉTAPE 4 -->
+  <div class="step">
+    <div class="step-title"><span class="step-num">4</span> Déployer comme Application Web</div>
+    <div class="step-body">
+      <div class="arrow">Bouton bleu <b>« Déployer »</b> (en haut à droite) → <b>« Nouveau déploiement »</b></div>
+      <p>Dans la fenêtre qui s'ouvre :</p>
+      <div class="arrow">Cliquez sur l'engrenage <b>⚙️</b> à côté de "Sélectionner le type" → choisir <b>« Application Web »</b></div>
+      <p>Remplissez les champs :</p>
+      <div class="img-placeholder" style="text-align:left;line-height:2">
+        📝 <b>Description</b> : <code>Villa Corsu API</code><br>
+        👤 <b>Exécuter en tant que</b> : <code>Moi (votre email)</code><br>
+        🌐 <b>Personnes ayant accès</b> : <code>Tout le monde</code> ← <b>IMPORTANT</b>
+      </div>
+      <div class="warn">Si vous choisissez autre chose que "Tout le monde", la synchro échouera.</div>
+      <div class="arrow">Cliquez <b>« Déployer »</b></div>
+      <p>Google va demander d'<b>autoriser l'accès</b> → cliquez <b>« Autoriser »</b>, choisissez votre compte Google, puis <b>« Autoriser »</b> à nouveau.</p>
+    </div>
+  </div>
+
+  <!-- ÉTAPE 5 -->
+  <div class="step">
+    <div class="step-title"><span class="step-num">5</span> Copier l'URL générée</div>
+    <div class="step-body">
+      <p>Après le déploiement, Google affiche une <b>URL d'application Web</b> :</p>
+      <div class="img-placeholder">
+        🔗 <code>https://script.google.com/macros/s/<b>AKfycb...longcode.../exec</b></code>
+      </div>
+      <div class="warn">Copiez cette URL complète — elle est nécessaire à l'étape suivante. Si vous fermez sans la copier, retrouvez-la dans Déployer → Gérer les déploiements.</div>
+    </div>
+  </div>
+
+  <!-- ÉTAPE 6 -->
+  <div class="step">
+    <div class="step-title"><span class="step-num">6</span> Coller l'URL dans data.js</div>
+    <div class="step-body">
+      <p>Ouvrez le fichier <code>data.js</code> de votre dépôt GitHub et remplacez :</p>
+      <pre><span class="k">const</span> APPS_SCRIPT_URL = <span class="s">"COLLER_VOTRE_URL_ICI"</span>;</pre>
+      <p>par :</p>
+      <pre><span class="k">const</span> APPS_SCRIPT_URL = <span class="s">"https://script.google.com/macros/s/AKfycb.../exec"</span>;</pre>
+      <p>Sur GitHub : ouvrez <code>data.js</code> → icône ✏️ → modifiez → <b>Commit changes</b>.</p>
+      <div class="done">✅ Une fois cette étape faite, testez ci-dessous !</div>
+    </div>
+  </div>
+
+  <!-- OUTIL DE DIAGNOSTIC -->
+  <div class="diag">
+    <div class="diag-title">🔍 Tester la connexion</div>
+    <div class="diag-sub">Collez votre URL Apps Script ici pour vérifier qu'elle fonctionne correctement</div>
+    <div class="input-row">
+      <input class="url-input" id="test-url" type="url"
+        placeholder="https://script.google.com/macros/s/.../exec"/>
+      <button class="test-btn" id="test-btn" onclick="testConnection()">Tester</button>
+    </div>
+    <div class="result" id="result"></div>
+  </div>
+
+  <div style="margin-top:2rem;font-size:13px;color:#6b6b67;text-align:center">
+    Besoin d'aide ? Revenez dans Claude et décrivez le message d'erreur que vous voyez.
+  </div>
+</div>
+
+<script>
+function copyScript() {
+  const raw = `// Villa Corsu — Web App Google Apps Script
+const SHEET_NAME = "";
+
+function doGet(e) {
+  try {
+    const ss    = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = SHEET_NAME ? ss.getSheetByName(SHEET_NAME) : ss.getSheets()[0];
+    if (!sheet) throw new Error("Feuille introuvable");
+    const rows   = sheet.getDataRange().getValues();
+    const header = rows[0].map(h => String(h).trim().toLowerCase());
+    const iArr  = findCol(header, ["arrivée","arrivee","arr"]);
+    const iDep  = findCol(header, ["départ","depart","dep"]);
+    const iName = findCol(header, ["locataire","nom","name"]);
+    const iNat  = findCol(header, ["nationalité","nationalite","nat"]);
+    const iVis  = findCol(header, ["visiteurs","vis","personnes"]);
+    const iPrix = findCol(header, ["prix","price","montant"]);
+    const data = [];
+    for (let i = 1; i < rows.length; i++) {
+      const row   = rows[i];
+      const arr   = formatDate(iArr  >= 0 ? row[iArr]  : "");
+      const dep   = formatDate(iDep  >= 0 ? row[iDep]  : "");
+      const name  = iName >= 0 ? String(row[iName] || "").trim() : "";
+      if (!arr || !dep || !name) continue;
+      const nat  = iNat  >= 0 ? String(row[iNat]  || "").trim() : "";
+      const vis  = iVis  >= 0 ? parseInt(row[iVis],  10) || 0   : 0;
+      const prix = iPrix >= 0 ? parseFloat(String(row[iPrix] || "0").replace(",",".")) || 0 : 0;
+      data.push({ arr, dep, name, nat, vis, prix });
+    }
+    return jsonResponse({ ok: true, count: data.length, data });
+  } catch (err) {
+    return jsonResponse({ ok: false, error: err.message });
+  }
+}
+function findCol(header, candidates) {
+  for (const c of candidates) {
+    const i = header.findIndex(h => h.includes(c));
+    if (i >= 0) return i;
+  }
+  return -1;
+}
+function formatDate(v) {
+  if (!v) return null;
+  if (v instanceof Date) return pad(v.getDate())+"/"+pad(v.getMonth()+1)+"/"+v.getFullYear();
+  if (typeof v==="string" && /^\\d{1,2}\\/\\d{1,2}\\/\\d{4}$/.test(v.trim())) return v.trim();
+  if (typeof v==="number") { const d=new Date(Math.round((v-25569)*86400000)); return pad(d.getUTCDate())+"/"+pad(d.getUTCMonth()+1)+"/"+d.getUTCFullYear(); }
+  const d=new Date(String(v)); return isNaN(d)?null:pad(d.getDate())+"/"+pad(d.getMonth()+1)+"/"+d.getFullYear();
+}
+function pad(n) { return n<10?"0"+n:String(n); }
+function jsonResponse(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}`;
+  navigator.clipboard.writeText(raw).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = '✅ Copié !';
+    setTimeout(() => btn.textContent = '📋 Copier le script', 2000);
+  });
+}
+
+async function testConnection() {
+  const url   = document.getElementById('test-url').value.trim();
+  const res   = document.getElementById('result');
+  const btn   = document.getElementById('test-btn');
+  res.style.display = 'none';
+  if (!url) { showErr(res, "Veuillez saisir une URL."); return; }
+  if (!url.startsWith('https://script.google.com')) {
+    showErr(res, "L'URL doit commencer par https://script.google.com/macros/s/…/exec");
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Test en cours…';
+  try {
+    const response = await fetch(url + '?t=' + Date.now());
+    const text = await response.text();
+    let json;
+    try { json = JSON.parse(text); } catch(e) {
+      showErr(res, "La réponse n'est pas du JSON valide.\n\nRéponse reçue :\n" + text.slice(0,400));
+      return;
+    }
+    if (json.ok && Array.isArray(json.data) && json.data.length > 0) {
+      res.className = 'result ok';
+      res.innerHTML = `✅ <b>Connexion réussie !</b> ${json.count} réservations chargées.<br>
+        <pre>${JSON.stringify(json.data[0], null, 2)}</pre>
+        <p style="margin-top:8px">Copiez l'URL dans <code>data.js</code> et uploadez sur GitHub.</p>`;
+      res.style.display = 'block';
+    } else if (json.ok && json.count === 0) {
+      showErr(res, "Connecté mais aucune réservation trouvée.\nVérifiez que le Sheet contient bien des données et que les en-têtes de colonnes sont corrects (Arrivée, Départ, locataire…)");
+    } else {
+      showErr(res, "Le script a répondu avec une erreur :\n" + (json.error || JSON.stringify(json)));
+    }
+  } catch(err) {
+    showErr(res, "Impossible de joindre l'URL.\n\nCause : " + err.message + "\n\nVérifiez :\n• Que le déploiement est bien de type « Application Web »\n• Que l'accès est « Tout le monde »\n• Que vous avez bien autorisé le script");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Tester';
+  }
+}
+
+function showErr(el, msg) {
+  el.className = 'result err';
+  el.innerHTML = '❌ <b>Échec</b><pre>' + msg + '</pre>';
+  el.style.display = 'block';
+}
+</script>
+</body>
+</html>
